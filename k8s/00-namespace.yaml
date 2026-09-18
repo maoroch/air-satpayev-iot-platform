@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wind-satpayev
+  labels:
+    app.kubernetes.io/name: wind-satpayev
+    app.kubernetes.io/part-of: digital-air-purifier

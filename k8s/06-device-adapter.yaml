@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: device-adapter
+  namespace: wind-satpayev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: device-adapter
+  template:
+    metadata:
+      labels:
+        app: device-adapter
+    spec:
+      containers:
+        - name: device-adapter
+          image: wind-satpayev-adapter:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: purifier-config
