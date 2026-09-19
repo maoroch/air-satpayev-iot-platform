@@ -80,6 +80,7 @@ class DeviceCommandResponse(BaseModel):
     id: str
     device_id: str
     command: str
+    payload: Optional[str] = None
     status: str
     created_at: datetime
     executed_at: Optional[datetime]

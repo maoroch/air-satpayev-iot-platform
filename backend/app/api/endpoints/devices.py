@@ -20,6 +20,26 @@ def get_devices(db: Session = Depends(get_db), current_user: User = Depends(get_
     devices = db.query(Device).all()
     return devices
 
+@router.get("/commands/pending", response_model=List[DeviceCommandResponse])
+def get_pending_commands(db: Session = Depends(get_db)):
+    return DeviceService.get_pending_commands(db)
+
+@router.post("/commands/{command_id}/sent", response_model=DeviceCommandResponse)
+def mark_command_sent(command_id: str, db: Session = Depends(get_db)):
+    cmd = DeviceService.mark_command_sent(db, command_id)
+    if not cmd:
+        raise HTTPException(status_code=404, detail="Команда не найдена")
+    return cmd
+
+@router.post("/commands/{command_id}/ack", response_model=DeviceCommandResponse)
+def process_command_ack(command_id: str, payload: dict = None, db: Session = Depends(get_db)):
+    ack_status = payload.get("status", "EXECUTED") if payload else "EXECUTED"
+    details = payload.get("details") if payload else None
+    cmd = DeviceService.process_command_ack(db, command_id, ack_status, details)
+    if not cmd:
+        raise HTTPException(status_code=404, detail="Команда не найдена")
+    return cmd
+
 @router.get("/{device_id}", response_model=DeviceResponse)
 def get_device(device_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     device = db.query(Device).filter(Device.id == device_id).first()
