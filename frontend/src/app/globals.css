@@ -206,6 +206,12 @@ body {
   border: 1px solid rgba(255, 59, 48, 0.2);
 }
 
+.badge-neutral {
+  background: rgba(142, 142, 147, 0.12);
+  color: #636366;
+  border: 1px solid rgba(142, 142, 147, 0.25);
+}
+
 /* Clean Animations */
 @keyframes spin-slow {
   from { transform: rotate(0deg); }

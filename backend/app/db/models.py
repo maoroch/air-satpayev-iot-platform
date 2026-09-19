@@ -58,6 +58,7 @@ class Measurement(Base):
     device_id = Column(String(64), ForeignKey("devices.id"), index=True, nullable=False)
     sensor_code = Column(String(20), ForeignKey("sensor_types.code"), index=True, nullable=False)
     value = Column(Float, nullable=False)
+    fan_status = Column(Boolean, default=True, nullable=False)
     is_test = Column(Boolean, default=False)
     recorded_at = Column(DateTime, default=utc_now, index=True)
 

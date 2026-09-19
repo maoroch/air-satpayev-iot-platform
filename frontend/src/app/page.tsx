@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Activity,
   Wind,
@@ -22,6 +22,12 @@ import {
   ChevronRight,
   User
 } from "lucide-react";
+import ClimateDynamicsChart from "../components/ClimateDynamicsChart";
+import MeasurementHistoryTable from "../components/MeasurementHistoryTable";
+import AlertsCenter from "../components/AlertsCenter";
+import DiagnosticsAndSettings from "../components/DiagnosticsAndSettings";
+import AuditLogsViewer from "../components/AuditLogsViewer";
+import { formatTime, formatDateWithTime } from "../utils/date";
 
 interface DeviceData {
   id: string;
@@ -50,8 +56,32 @@ interface NotificationItem {
 
 interface HistoryPoint {
   recorded_at: string;
-  temperature: number;
-  humidity: number;
+  temperature: number | null;
+  humidity: number | null;
+  fan_active: boolean;
+}
+
+interface AuditLogItem {
+  id: number;
+  user_email: string;
+  action: string;
+  details: string;
+  created_at: string;
+}
+
+interface DiagnosticsData {
+  version: string;
+  database_status: string;
+  mqtt_broker_status: string;
+  total_devices: number;
+  online_devices: number;
+  system_uptime: string;
+  active_alarms: number;
+}
+
+interface SettingDetail {
+  value: string;
+  description: string;
 }
 
 const ROLE_PROFILES = {
@@ -60,72 +90,62 @@ const ROLE_PROFILES = {
   TECH: { email: "tech@satpayev.kz", password: "Tech@2026!", label: "Техник" }
 };
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:8000/api/v1`
+    : "http://localhost:8000/api/v1");
+
+const WS_BASE =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/api/v1/ws/telemetry`
+    : "ws://localhost:8000/api/v1/ws/telemetry");
+
+
 export default function DashboardPage() {
-  // State
+  // Authentication & Navigation
   const [activeRole, setActiveRole] = useState<"ADMIN" | "OPERATOR" | "TECH">("ADMIN");
   const [token, setToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "alerts" | "diagnostics" | "audit">("overview");
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [filterComment, setFilterComment] = useState("Плановая замена HEPA фильтра H13");
-  const [commandLoading, setCommandLoading] = useState(false);
-  const [lastActionMsg, setLastActionMsg] = useState<string | null>(null);
 
   // Device & Telemetry state
   const [device, setDevice] = useState<DeviceData>({
     id: "purifier-satpayev-01",
     name: "Очиститель воздуха Сатпаев №1",
-    model: "Satpayev Compact Purifier v1",
+    model: "Satpayev Compact Air Purifier v1",
     mac_address: "24:6F:28:AE:3C:80",
-    status: "ONLINE",
-    last_temperature: 23.4,
-    last_humidity: 47.8,
-    fan_active: true,
-    filter_life_percent: 94.2,
-    filter_hours_used: 41.8,
+    status: "OFFLINE",
+    last_temperature: 22.5,
+    last_humidity: 45.0,
+    fan_active: false,
+    filter_life_percent: 100.0,
+    filter_hours_used: 0.0,
     filter_hours_max: 720.0,
-    last_seen: new Date().toISOString()
+    last_seen: null
   });
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: "n-01",
-      type: "FILTER_WARN",
-      severity: "INFO",
-      title: "Калибровка фильтра завершена",
-      message: "Нормативный ресурс 720 часов активен. Текущий ресурс 94.2%.",
-      is_resolved: false,
-      created_at: new Date(Date.now() - 3600000).toISOString()
-    }
-  ]);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
+  const [settingsMap, setSettingsMap] = useState<Record<string, SettingDetail>>({});
+  const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  // Generate 24 historical points for SVG chart
-  const [history, setHistory] = useState<HistoryPoint[]>(() => {
-    const points: HistoryPoint[] = [];
-    const now = Date.now();
-    for (let i = 24; i >= 0; i--) {
-      const t = 22.8 + Math.sin(i * 0.4) * 1.6 + (Math.random() * 0.4 - 0.2);
-      const h = 48.0 - Math.sin(i * 0.4) * 2.2 + (Math.random() * 0.6 - 0.3);
-      points.push({
-        recorded_at: new Date(now - i * 300000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        temperature: Number(t.toFixed(1)),
-        humidity: Number(h.toFixed(1))
-      });
-    }
-    return points;
-  });
+  // Modals & UI indicators
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filterComment, setFilterComment] = useState("Плановая замена фильтра HEPA H13");
+  const [commandLoading, setCommandLoading] = useState(false);
+  const [lastActionMsg, setLastActionMsg] = useState<string | null>(null);
 
-  const [auditLogs, setAuditLogs] = useState<{ id: number; time: string; user: string; action: string; details: string }[]>([
-    { id: 1, time: "Сегодня 14:10", user: "admin@satpayev.kz", action: "SYSTEM_INIT", details: "Инициализация платформы мониторинга" },
-    { id: 2, time: "Сегодня 14:15", user: "operator@satpayev.kz", action: "FAN_START", details: "Включение очистки воздуха (Режим Авто)" }
-  ]);
-
-  // Automatic JWT Authentication upon role switch or initial mount
+  // 1. Automatic JWT Login on role switch
   useEffect(() => {
     let isMounted = true;
     async function loginWithProfile() {
       try {
         const creds = ROLE_PROFILES[activeRole];
-        const res = await fetch("http://localhost:8000/api/v1/auth/login", {
+        const res = await fetch(`${API_BASE}/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: creds.email, password: creds.password })
@@ -137,8 +157,7 @@ export default function DashboardPage() {
           }
         }
       } catch (err) {
-        // Backend offline or running in mock mode
-        console.warn("Backend auth offline, using local simulation mode:", err);
+        console.warn("[Auth] Backend login error:", err);
       }
     }
 
@@ -148,59 +167,208 @@ export default function DashboardPage() {
     };
   }, [activeRole]);
 
-  // Periodic polling & Live streaming
-  useEffect(() => {
-    const fetchTelemetry = async () => {
-      if (token) {
-        try {
-          const res = await fetch("http://localhost:8000/api/v1/devices/purifier-satpayev-01", {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setDevice(data);
-            return;
-          }
-        } catch {
-          // Fall through to fallback simulation
+  // 2. Fetch Device, History, Notifications, Audit Logs
+  const fetchDeviceData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/devices/purifier-satpayev-01`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDevice(data);
+      }
+    } catch (err) {
+      console.error("[Fetch] Device error:", err);
+    }
+  }, []);
+
+  const fetchHistoryData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/telemetry/history?device_id=purifier-satpayev-01&limit=30`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          setHistory(json.data);
         }
       }
+    } catch (err) {
+      console.error("[Fetch] History error:", err);
+    }
+  }, []);
 
-      // Fallback smooth live updates in UI
-      setDevice((prev) => {
-        if (!prev.fan_active) return prev;
-        const nextTemp = Number((22.5 + Math.sin(Date.now() / 15000) * 1.5 + (Math.random() * 0.2 - 0.1)).toFixed(1));
-        const nextHum = Number((48.0 - Math.sin(Date.now() / 15000) * 2.0 + (Math.random() * 0.3 - 0.15)).toFixed(1));
-        const nextHours = Number((prev.filter_hours_used + 5 / 3600).toFixed(3));
-        const nextLife = Number(Math.max(0, (1 - nextHours / prev.filter_hours_max) * 100).toFixed(1));
-        return {
-          ...prev,
-          last_temperature: nextTemp,
-          last_humidity: nextHum,
-          filter_hours_used: nextHours,
-          filter_life_percent: nextLife,
-          last_seen: new Date().toISOString()
-        };
+  const fetchNotificationsData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications?resolved=false`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
       });
-    };
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error("[Fetch] Notifications error:", err);
+    }
+  }, []);
 
-    fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 4000);
+  const fetchAuditLogsData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/system/logs/audit?limit=50`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data);
+      }
+    } catch (err) {
+      console.error("[Fetch] Audit logs error:", err);
+    }
+  }, []);
+
+  const fetchDiagnosticsData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/system/diagnostics`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnostics(data);
+      }
+    } catch (err) {
+      console.error("[Fetch] Diagnostics error:", err);
+    }
+  }, []);
+
+  const fetchSettingsData = useCallback(async (currentToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/system/settings`, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSettingsMap(data);
+        const initialForm: Record<string, string> = {};
+        Object.entries(data).forEach(([k, v]: [string, any]) => {
+          initialForm[k] = v.value;
+        });
+        setEditingSettings(initialForm);
+      }
+    } catch (err) {
+      console.error("[Fetch] Settings error:", err);
+    }
+  }, []);
+
+  // Periodic Polling
+  useEffect(() => {
+    if (!token) return;
+
+    fetchDeviceData(token);
+    fetchHistoryData(token);
+    fetchNotificationsData(token);
+
+    if (activeTab === "audit") {
+      fetchAuditLogsData(token);
+    } else if (activeTab === "diagnostics") {
+      fetchDiagnosticsData(token);
+      fetchSettingsData(token);
+    }
+
+    const interval = setInterval(() => {
+      fetchDeviceData(token);
+      fetchHistoryData(token);
+      fetchNotificationsData(token);
+
+      if (activeTab === "audit") {
+        fetchAuditLogsData(token);
+      } else if (activeTab === "diagnostics") {
+        fetchDiagnosticsData(token);
+      }
+    }, 4000);
+
     return () => clearInterval(interval);
-  }, [token]);
+  }, [
+    token,
+    activeTab,
+    fetchDeviceData,
+    fetchHistoryData,
+    fetchNotificationsData,
+    fetchAuditLogsData,
+    fetchDiagnosticsData,
+    fetchSettingsData
+  ]);
 
-  // Handlers
+  // 3. Real-time WebSocket Streaming
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+
+    function connect() {
+      try {
+        ws = new WebSocket(WS_BASE);
+        ws.onopen = () => {
+          console.log("[WS] Connected to telemetry stream");
+        };
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.device_id === "purifier-satpayev-01") {
+              setDevice((prev) => ({
+                ...prev,
+                last_temperature: msg.temperature ?? prev.last_temperature,
+                last_humidity: msg.humidity ?? prev.last_humidity,
+                fan_active: typeof msg.fan_active === "boolean" ? msg.fan_active : prev.fan_active,
+                status: "ONLINE",
+                last_seen: msg.recorded_at || new Date().toISOString()
+              }));
+
+              setHistory((prev) => {
+                const newPoint: HistoryPoint = {
+                  recorded_at: msg.recorded_at || new Date().toISOString(),
+                  temperature: msg.temperature ?? null,
+                  humidity: msg.humidity ?? null,
+                  fan_active: msg.fan_active ?? true
+                };
+                const next = [...prev, newPoint];
+                return next.slice(-30);
+              });
+            }
+          } catch (e) {
+            console.error("[WS] Message parsing error:", e);
+          }
+        };
+        ws.onclose = () => {
+          reconnectTimeout = setTimeout(connect, 3000);
+        };
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch (err) {
+        reconnectTimeout = setTimeout(connect, 3000);
+      }
+    }
+
+    connect();
+    return () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, []);
+
+  // 4. Handlers
   const handleToggleFan = async () => {
     setCommandLoading(true);
     const targetState = !device.fan_active;
+
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      await fetch(`http://localhost:8000/api/v1/devices/${device.id}/command`, {
+      const res = await fetch(`${API_BASE}/devices/${device.id}/command`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -208,22 +376,26 @@ export default function DashboardPage() {
           payload: { enabled: targetState }
         })
       });
-    } catch {}
 
-    setDevice((prev) => ({ ...prev, fan_active: targetState }));
-    setAuditLogs((prev) => [
-      {
-        id: prev.length + 1,
-        time: "Только что",
-        user: ROLE_PROFILES[activeRole].email,
-        action: targetState ? "FAN_ON" : "FAN_OFF",
-        details: `Команда управления: вентилятор переведен в статус ${targetState ? "ВКЛ" : "ВЫКЛ"}`
-      },
-      ...prev
-    ]);
-    setLastActionMsg(`Команда выполнена: вентилятор ${targetState ? "запущен" : "остановлен"}`);
-    setTimeout(() => setLastActionMsg(null), 3500);
-    setCommandLoading(false);
+      if (res.ok) {
+        setDevice((prev) => ({ ...prev, fan_active: targetState }));
+        setLastActionMsg(`Команда передана в Outbox: вентилятор ${targetState ? "запускается" : "останавливается"}`);
+        if (token) {
+          setTimeout(() => {
+            fetchDeviceData(token);
+            fetchHistoryData(token);
+            fetchAuditLogsData(token);
+          }, 1200);
+        }
+      } else {
+        setLastActionMsg("Ошибка при отправке команды управления вентилятором");
+      }
+    } catch (err) {
+      setLastActionMsg("Сетевая ошибка при отправке команды");
+    } finally {
+      setCommandLoading(false);
+      setTimeout(() => setLastActionMsg(null), 3500);
+    }
   };
 
   const handleResetFilter = async () => {
@@ -232,71 +404,104 @@ export default function DashboardPage() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      await fetch(`http://localhost:8000/api/v1/devices/${device.id}/filter/reset`, {
+      const res = await fetch(`${API_BASE}/devices/${device.id}/filter/reset`, {
         method: "POST",
         headers,
         body: JSON.stringify({ comment: filterComment })
       });
-    } catch {}
 
-    setDevice((prev) => ({
-      ...prev,
-      filter_hours_used: 0.0,
-      filter_life_percent: 100.0
-    }));
+      if (res.ok) {
+        setDevice((prev) => ({
+          ...prev,
+          filter_hours_used: 0.0,
+          filter_life_percent: 100.0
+        }));
+        setLastActionMsg("Ресурс фильтра успешно сброшен на 100%");
+        if (token) {
+          fetchNotificationsData(token);
+          fetchAuditLogsData(token);
+        }
+      } else {
+        setLastActionMsg("Недостаточно прав для сброса ресурса фильтра");
+      }
+    } catch {
+      setLastActionMsg("Ошибка соединения при сбросе фильтра");
+    } finally {
+      setIsFilterModalOpen(false);
+      setTimeout(() => setLastActionMsg(null), 3500);
+    }
+  };
 
-    setAuditLogs((prev) => [
-      {
-        id: prev.length + 1,
-        time: "Только что",
-        user: ROLE_PROFILES[activeRole].email,
-        action: "FILTER_RESET",
-        details: `Сброс ресурса фильтра. Причина: ${filterComment}`
-      },
-      ...prev
-    ]);
-
-    setNotifications((prev) => prev.filter((n) => !n.type.startsWith("FILTER")));
-    setIsFilterModalOpen(false);
-    setLastActionMsg("Ресурс фильтра успешно сброшен на 100%");
+  const handleExportCSV = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/telemetry/export`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `telemetry_${device.id}_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setLastActionMsg("Экспорт телеметрии в CSV успешно загружен");
+      } else {
+        setLastActionMsg("Ошибка авторизации при экспорте CSV");
+      }
+    } catch (err) {
+      setLastActionMsg("Ошибка соединения при экспорте CSV");
+    }
     setTimeout(() => setLastActionMsg(null), 3500);
   };
 
-  const handleExportCSV = () => {
-    window.open("http://localhost:8000/api/v1/telemetry/export", "_blank");
-    setLastActionMsg("Экспорт телеметрии в CSV начат");
-    setTimeout(() => setLastActionMsg(null), 3000);
+  const handleResolveAlert = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/${id}/resolve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok && token) {
+        fetchNotificationsData(token);
+        setLastActionMsg("Предупреждение подтверждено");
+        setTimeout(() => setLastActionMsg(null), 3000);
+      }
+    } catch (err) {
+      console.error("[Alert] Resolve error:", err);
+    }
   };
 
-  const handleResolveAlert = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_resolved: true } : n)));
+  const handleSaveSetting = async (key: string) => {
+    if (!token) return;
+    setIsSavingSettings(true);
+    try {
+      const val = editingSettings[key];
+      const res = await fetch(`${API_BASE}/system/settings/${key}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ value: val })
+      });
+      if (res.ok) {
+        setLastActionMsg(`Параметр ${key} сохранен: ${val}`);
+        fetchSettingsData(token);
+      } else {
+        setLastActionMsg(`Недостаточно прав (требуется ADMIN)`);
+      }
+    } catch (err) {
+      setLastActionMsg("Ошибка сохранения параметра");
+    } finally {
+      setIsSavingSettings(false);
+      setTimeout(() => setLastActionMsg(null), 3500);
+    }
   };
 
-  // SVG Chart Calculations
-  const chartSvg = useMemo(() => {
-    const width = 800;
-    const height = 220;
-    const padding = 36;
-
-    const minT = 18;
-    const maxT = 28;
-    const minH = 30;
-    const maxH = 70;
-
-    const getX = (index: number) => padding + (index / (history.length - 1)) * (width - 2 * padding);
-    const getYTemp = (val: number) => height - padding - ((val - minT) / (maxT - minT)) * (height - 2 * padding);
-    const getYHum = (val: number) => height - padding - ((val - minH) / (maxH - minH)) * (height - 2 * padding);
-
-    const tempPath = history
-      .map((h, i) => `${i === 0 ? "M" : "L"} ${getX(i).toFixed(1)} ${getYTemp(h.temperature).toFixed(1)}`)
-      .join(" ");
-
-    const humPath = history
-      .map((h, i) => `${i === 0 ? "M" : "L"} ${getX(i).toFixed(1)} ${getYHum(h.humidity).toFixed(1)}`)
-      .join(" ");
-
-    return { width, height, tempPath, humPath, getX };
-  }, [history]);
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 24px" }}>
@@ -341,8 +546,16 @@ export default function DashboardPage() {
         {/* Right Section: User Profile & Segmented Switcher */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           {/* Status badge */}
-          <div className="badge badge-online">
-            <span className="pulse-live" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent-green)" }} />
+          <div className={`badge ${device.status === "ONLINE" ? "badge-online" : "badge-offline"}`}>
+            <span
+              className="pulse-live"
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: device.status === "ONLINE" ? "var(--accent-green)" : "var(--accent-red)"
+              }}
+            />
             {device.status === "ONLINE" ? "Подключено" : "Офлайн"}
           </div>
 
@@ -424,11 +637,13 @@ export default function DashboardPage() {
             </div>
           </div>
           <div style={{ fontSize: "2.25rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.025em", marginBottom: 6 }}>
-            {device.last_temperature !== null ? `${device.last_temperature}°` : "--"}
+            {device.last_temperature !== null ? `${device.last_temperature.toFixed(1)}°` : "--"}
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.8125rem" }}>
-            <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Норма (20–25 °C)</span>
-            <span style={{ color: "var(--text-muted)" }}>SHT31</span>
+            <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>
+              {device.last_temperature !== null && device.last_temperature <= 30.0 ? "Норма (18–26 °C)" : "Повышенная"}
+            </span>
+            <span style={{ color: "var(--text-muted)" }}>SHT31 (I2C)</span>
           </div>
           {/* Track */}
           <div style={{ height: 4, background: "#f2f2f7", borderRadius: 9999, marginTop: 14, overflow: "hidden" }}>
@@ -455,7 +670,7 @@ export default function DashboardPage() {
                 width: 32,
                 height: 32,
                 borderRadius: "8px",
-                background: "rgba(48, 176, 199, 0.1)",
+                background: "rgba(48, 176, 199, 0.08)",
                 color: "var(--accent-teal)",
                 display: "flex",
                 alignItems: "center",
@@ -466,11 +681,13 @@ export default function DashboardPage() {
             </div>
           </div>
           <div style={{ fontSize: "2.25rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.025em", marginBottom: 6 }}>
-            {device.last_humidity !== null ? `${device.last_humidity}%` : "--"}
+            {device.last_humidity !== null ? `${device.last_humidity.toFixed(1)}%` : "--"}
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.8125rem" }}>
-            <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Комфортно (40–60%)</span>
-            <span style={{ color: "var(--text-muted)" }}>±2%</span>
+            <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>
+              {device.last_humidity !== null && device.last_humidity >= 30 && device.last_humidity <= 60 ? "Оптимально (40–60%)" : "В норме"}
+            </span>
+            <span style={{ color: "var(--text-muted)" }}>SHT31 (I2C)</span>
           </div>
           {/* Track */}
           <div style={{ height: 4, background: "#f2f2f7", borderRadius: 9999, marginTop: 14, overflow: "hidden" }}>
@@ -490,7 +707,7 @@ export default function DashboardPage() {
         <div className="apple-card" style={{ padding: "22px 24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500 }}>
-              Ресурс фильтра HEPA
+              Ресурс фильтра HEPA H13
             </span>
             <div
               style={{
@@ -509,14 +726,14 @@ export default function DashboardPage() {
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
             <span style={{ fontSize: "2.25rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.025em" }}>
-              {device.filter_life_percent}%
+              {device.filter_life_percent.toFixed(1)}%
             </span>
             <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
               ({device.filter_hours_used.toFixed(1)} / {device.filter_hours_max} ч)
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.8125rem" }}>
-            <span style={{ color: "var(--text-muted)" }}>~28 дн. работы</span>
+            <span style={{ color: "var(--text-muted)" }}>Счетчик наработки</span>
             {(activeRole === "ADMIN" || activeRole === "OPERATOR") && (
               <button
                 onClick={() => setIsFilterModalOpen(true)}
@@ -537,7 +754,7 @@ export default function DashboardPage() {
           <div style={{ height: 4, background: "#f2f2f7", borderRadius: 9999, marginTop: 14, overflow: "hidden" }}>
             <div
               style={{
-                width: `${device.filter_life_percent}%`,
+                width: `${Math.min(100, Math.max(0, device.filter_life_percent))}%`,
                 height: "100%",
                 background: device.filter_life_percent > 20 ? "var(--accent-green)" : "var(--accent-red)",
                 borderRadius: 9999,
@@ -575,14 +792,14 @@ export default function DashboardPage() {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: device.fan_active ? "var(--accent-green)" : "var(--text-tertiary)"
+                background: device.fan_active ? "var(--accent-green)" : "#8e8e93"
               }}
             />
             <span style={{ fontSize: "1.25rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.015em" }}>
-              {device.fan_active ? "Очистка активна" : "Прибор выключен"}
+              {device.fan_active ? "Очистка активна" : "Прибор остановлен"}
             </span>
           </div>
-          {(activeRole === "ADMIN" || activeRole === "OPERATOR") ? (
+          {activeRole === "ADMIN" || activeRole === "OPERATOR" ? (
             <button
               onClick={handleToggleFan}
               disabled={commandLoading}
@@ -616,7 +833,7 @@ export default function DashboardPage() {
             { id: "overview", label: "Аналитика", icon: Activity },
             { id: "history", label: "История замеров", icon: Clock },
             { id: "alerts", label: `Алерты (${notifications.filter((n) => !n.is_resolved).length})`, icon: AlertTriangle },
-            { id: "diagnostics", label: "Диагностика", icon: Server },
+            { id: "diagnostics", label: "Диагностика и настройки", icon: Server },
             { id: "audit", label: "Журнал аудита", icon: FileText }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -642,244 +859,44 @@ export default function DashboardPage() {
       </div>
 
       {/* TAB 1: OVERVIEW & CHART */}
-      {activeTab === "overview" && (
-        <section className="apple-card" style={{ padding: "28px 32px", marginBottom: 28 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.015em" }}>
-                Динамика климатических параметров
-              </h2>
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
-                Непрерывный поток телеметрии (интервал 5 сек)
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 20, fontSize: "0.8125rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--accent-blue)" }} />
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Температура (°C)</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--accent-teal)" }} />
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Влажность (%)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Minimalist Multi-Series Chart */}
-          <div style={{ width: "100%", overflowX: "auto" }}>
-            <svg viewBox={`0 0 ${chartSvg.width} ${chartSvg.height}`} style={{ width: "100%", height: 240, overflow: "visible" }}>
-              {/* Subtle Horizontal Grid lines */}
-              {[0.2, 0.4, 0.6, 0.8].map((ratio, idx) => (
-                <line
-                  key={idx}
-                  x1="36"
-                  y1={chartSvg.height * ratio}
-                  x2={chartSvg.width - 36}
-                  y2={chartSvg.height * ratio}
-                  stroke="rgba(0, 0, 0, 0.04)"
-                  strokeDasharray="4 4"
-                />
-              ))}
-
-              {/* Temperature Line */}
-              <path d={chartSvg.tempPath} fill="none" stroke="var(--accent-blue)" strokeWidth="2.5" strokeLinecap="round" />
-
-              {/* Humidity Line */}
-              <path d={chartSvg.humPath} fill="none" stroke="var(--accent-teal)" strokeWidth="2.5" strokeLinecap="round" />
-
-              {/* Temperature Points */}
-              {history.map((h, i) => (
-                <circle
-                  key={`t-${i}`}
-                  cx={chartSvg.getX(i)}
-                  cy={220 - 36 - ((h.temperature - 18) / 10) * 148}
-                  r="3"
-                  fill="#ffffff"
-                  stroke="var(--accent-blue)"
-                  strokeWidth="2"
-                />
-              ))}
-            </svg>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, fontSize: "0.75rem", color: "var(--text-muted)", padding: "0 10px" }}>
-            <span>-2 часа</span>
-            <span>-1 час</span>
-            <span>Текущее время</span>
-          </div>
-        </section>
-      )}
+      {activeTab === "overview" && <ClimateDynamicsChart history={history} />}
 
       {/* TAB 2: HISTORY TABLE */}
       {activeTab === "history" && (
-        <section className="apple-card" style={{ padding: "24px 28px" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: 18, letterSpacing: "-0.015em" }}>
-            Журнал телеметрических замеров
-          </h2>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border-divider)", color: "var(--text-muted)" }}>
-                  <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Время</th>
-                  <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Температура</th>
-                  <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Влажность</th>
-                  <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Вентилятор</th>
-                  <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Канал передачи</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.slice(0, 10).map((row, idx) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid var(--border-divider)" }}>
-                    <td style={{ padding: "14px 16px", color: "var(--text-primary)" }}>{row.recorded_at}</td>
-                    <td style={{ padding: "14px 16px", color: "var(--accent-blue)", fontWeight: 600 }}>{row.temperature} °C</td>
-                    <td style={{ padding: "14px 16px", color: "var(--accent-teal)", fontWeight: 600 }}>{row.humidity} %</td>
-                    <td style={{ padding: "14px 16px" }}>
-                      <span className="badge badge-online">
-                        Активен
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 16px", color: "var(--text-muted)" }}>MQTT (QoS 0)</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <MeasurementHistoryTable
+          history={history}
+          onRefresh={() => token && fetchHistoryData(token)}
+        />
       )}
 
       {/* TAB 3: ALERTS */}
       {activeTab === "alerts" && (
-        <section className="apple-card" style={{ padding: "24px 28px" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: 18, letterSpacing: "-0.015em" }}>
-            Центр уведомлений и предупреждений
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "16px 20px",
-                  borderRadius: "var(--radius-sm)",
-                  background: notif.is_resolved ? "rgba(0, 0, 0, 0.02)" : "rgba(255, 59, 48, 0.06)",
-                  border: `1px solid ${notif.is_resolved ? "var(--border-divider)" : "rgba(255, 59, 48, 0.15)"}`
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <AlertTriangle size={22} color={notif.is_resolved ? "var(--text-muted)" : "var(--accent-red)"} />
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "0.875rem", color: notif.is_resolved ? "var(--text-muted)" : "var(--text-primary)" }}>
-                      {notif.title}
-                    </div>
-                    <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
-                      {notif.message}
-                    </div>
-                  </div>
-                </div>
-                {!notif.is_resolved && (
-                  <button onClick={() => handleResolveAlert(notif.id)} className="btn btn-outline" style={{ fontSize: "0.75rem", padding: "6px 12px" }}>
-                    Подтвердить
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+        <AlertsCenter
+          notifications={notifications}
+          onResolveAlert={handleResolveAlert}
+        />
       )}
 
-      {/* TAB 4: DIAGNOSTICS */}
+      {/* TAB 4: DIAGNOSTICS & SETTINGS */}
       {activeTab === "diagnostics" && (
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
-          <div className="apple-card" style={{ padding: "24px 28px" }}>
-            <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-              <Cpu size={18} color="var(--accent-blue)" /> Аппаратная спецификация
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: "0.875rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>Идентификатор прибора</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{device.id}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>Микроконтроллер</span>
-                <span style={{ fontWeight: 500 }}>ESP32-WROOM-32 (240 МГц)</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>MAC-адрес</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{device.mac_address}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>Шина сенсоров</span>
-                <span style={{ fontWeight: 500 }}>I2C (SDA: GPIO21, SCL: GPIO22)</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Сторожевой таймер (WDT)</span>
-                <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Активен (10 с)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="apple-card" style={{ padding: "24px 28px" }}>
-            <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-              <Server size={18} color="var(--accent-teal)" /> Сервисы серверной платформы
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: "0.875rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>Core Backend (FastAPI)</span>
-                <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Работает :8000</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>MQTT Брокер (Mosquitto)</span>
-                <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Работает :1883</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-                <span style={{ color: "var(--text-secondary)" }}>База данных (PostgreSQL)</span>
-                <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Подключено :5432</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Кэш & Брокер (Redis)</span>
-                <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Активен :6379</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        <DiagnosticsAndSettings
+          device={device}
+          diagnostics={diagnostics}
+          settingsMap={settingsMap}
+          editingSettings={editingSettings}
+          onEditingSettingsChange={setEditingSettings}
+          activeRole={activeRole}
+          onSaveSetting={handleSaveSetting}
+          isSavingSettings={isSavingSettings}
+        />
       )}
 
       {/* TAB 5: AUDIT LOGS */}
       {activeTab === "audit" && (
-        <section className="apple-card" style={{ padding: "24px 28px" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: 18, letterSpacing: "-0.015em" }}>
-            Журнал аудита действий пользователей (FR-13)
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {auditLogs.map((log) => (
-              <div
-                key={log.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 16px",
-                  background: "var(--bg-subtle)",
-                  border: "1px solid var(--border-divider)",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: "0.875rem"
-                }}
-              >
-                <div>
-                  <span style={{ color: "var(--accent-blue)", fontWeight: 600, marginRight: 8, fontSize: "0.8125rem" }}>
-                    [{log.action}]
-                  </span>
-                  <span style={{ color: "var(--text-primary)" }}>{log.details}</span>
-                </div>
-                <div style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>
-                  {log.user} • {log.time}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <AuditLogsViewer
+          auditLogs={auditLogs}
+          onRefresh={() => token && fetchAuditLogsData(token)}
+        />
       )}
 
       {/* Apple-style Sheet Modal for Filter Replacement */}

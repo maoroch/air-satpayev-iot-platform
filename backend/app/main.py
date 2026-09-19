@@ -7,7 +7,7 @@ import json
 from app.core.config import settings
 from app.api.api import api_router
 from app.db.session import engine, Base, SessionLocal
-from app.db.models import User, Device, SensorType, Setting
+from app.db.models import User, Device, SensorType, Setting, DeviceCommand, Measurement, FilterCycle, Notification, AuditLog
 from app.core.security import get_password_hash
 
 # Create tables if not existing
@@ -59,6 +59,18 @@ def init_db():
                 filter_hours_used=39.6,
                 filter_hours_max=720.0
             ))
+
+        # 4. Seed Dynamic Alert Settings
+        default_settings = [
+            ("ALERT_TEMP_HIGH_C", "35.0", "Порог высокой температуры (°C)"),
+            ("ALERT_HUMIDITY_MIN", "20.0", "Минимальная допустимая влажность (%)"),
+            ("ALERT_HUMIDITY_MAX", "80.0", "Максимальная допустимая влажность (%)"),
+            ("ALERT_FILTER_WARN_PERCENT", "10.0", "Порог предупреждения о замене фильтра (%)"),
+            ("DEVICE_OFFLINE_TIMEOUT_SEC", "30", "Таймаут перехода прибора в Offline (сек)"),
+        ]
+        for k, v, desc in default_settings:
+            if not db.query(Setting).filter(Setting.key == k).first():
+                db.add(Setting(key=k, value=v, description=desc))
 
         db.commit()
     finally:
