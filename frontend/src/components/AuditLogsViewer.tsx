@@ -22,14 +22,14 @@ export default function AuditLogsViewer({
   onRefresh
 }: AuditLogsViewerProps) {
   return (
-    <section className="bg-white rounded-2xl p-5 sm:p-7 border border-black/5 shadow-sm animate-in fade-in duration-300">
+    <section className="bg-white rounded-2xl p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm mb-6 sm:mb-8 animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-gray-100">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <FileText size={18} strokeWidth={2.2} />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <FileText size={20} strokeWidth={2.2} />
             </div>
-            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-gray-900">
+            <h2 className="text-base sm:text-lg xl:text-xl font-semibold tracking-tight text-gray-900">
               Журнал аудита действий пользователей (FR-13)
             </h2>
           </div>
@@ -37,15 +37,14 @@ export default function AuditLogsViewer({
             Неизменяемый журнал операций и команд управления очистителем воздуха из PostgreSQL.
           </p>
         </div>
-
       </div>
 
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-3">
         {auditLogs.length > 0 ? (
           auditLogs.map((log) => (
             <div
               key={log.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 sm:px-4 sm:py-3.5 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/60 rounded-xl text-sm transition-colors"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:px-5 sm:py-4 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/60 rounded-xl text-sm transition-colors"
             >
               <div className="flex items-start sm:items-center gap-2.5 flex-wrap sm:flex-nowrap">
                 <span className="text-xs font-mono font-semibold text-blue-700 bg-blue-50 border border-blue-200/70 px-2 py-0.5 rounded-md shrink-0">

@@ -36,12 +36,12 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const width = 840;
-  const height = 260;
-  const padLeft = 52;
-  const padRight = 52;
-  const padTop = 24;
-  const padBottom = 40;
+  const width = 1120;
+  const height = 340;
+  const padLeft = 56;
+  const padRight = 56;
+  const padTop = 28;
+  const padBottom = 44;
 
   const chartData = useMemo(() => {
     if (!history || history.length < 2) {
@@ -144,14 +144,14 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
   const hoveredItem = hoverIndex !== null && history[hoverIndex] ? history[hoverIndex] : null;
 
   return (
-    <section className="rounded-2xl bg-white p-4 sm:p-7 border border-black/5 shadow-sm mb-6 sm:mb-8">
+    <section className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm mb-6 sm:mb-8">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3.5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
+          <h2 className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 tracking-tight">
             Динамика климатических параметров
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Непрерывный поток телеметрии из PostgreSQL ({history.length} замеров в окне мониторинга)
           </p>
         </div>
@@ -207,7 +207,7 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
           <svg
             ref={svgRef}
             viewBox={`0 0 ${width} ${height}`}
-            className="w-full h-[260px] cursor-crosshair"
+            className="w-full h-[280px] sm:h-[340px] xl:h-[380px] cursor-crosshair"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >

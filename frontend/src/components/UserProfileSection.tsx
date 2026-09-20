@@ -136,7 +136,7 @@ export default function UserProfileSection({
       </div>
 
       {/* Main Profile Info & Role Switcher Card */}
-      <div className="rounded-2xl bg-white p-5 sm:p-7 border border-black/5 shadow-sm space-y-6">
+      <div className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm space-y-6">
         {/* User Identity Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 pb-6 border-b border-gray-100">
           <div className="flex items-center gap-4">
@@ -244,7 +244,7 @@ export default function UserProfileSection({
       </div>
 
       {/* Permissions Matrix Table */}
-      <div className="rounded-2xl bg-white p-5 sm:p-7 border border-black/5 shadow-sm space-y-4">
+      <div className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">

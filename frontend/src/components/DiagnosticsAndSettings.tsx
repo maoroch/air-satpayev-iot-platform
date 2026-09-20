@@ -55,13 +55,13 @@ export default function DiagnosticsAndSettings({
   isSavingSettings
 }: DiagnosticsAndSettingsProps) {
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in duration-300">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-5 xl:gap-6">
         {/* Box 1: Hardware Specs */}
-        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-black/5 shadow-sm">
-          <h3 className="text-base font-semibold mb-4 flex items-center gap-2.5 text-gray-900">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Cpu size={18} strokeWidth={2.2} />
+        <div className="bg-white rounded-2xl p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm">
+          <h3 className="text-base sm:text-lg xl:text-xl font-semibold mb-5 flex items-center gap-3 text-gray-900">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Cpu size={20} strokeWidth={2.2} />
             </div>
             <span>Аппаратная спецификация</span>
           </h3>
@@ -93,10 +93,10 @@ export default function DiagnosticsAndSettings({
         </div>
 
         {/* Box 2: Server Services */}
-        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-black/5 shadow-sm">
-          <h3 className="text-base font-semibold mb-4 flex items-center gap-2.5 text-gray-900">
-            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
-              <Server size={18} strokeWidth={2.2} />
+        <div className="bg-white rounded-2xl p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm">
+          <h3 className="text-base sm:text-lg xl:text-xl font-semibold mb-5 flex items-center gap-3 text-gray-900">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+              <Server size={20} strokeWidth={2.2} />
             </div>
             <span>Сервисы серверной платформы</span>
           </h3>
@@ -136,12 +136,12 @@ export default function DiagnosticsAndSettings({
       </section>
 
       {/* Box 3: System Thresholds and Settings (CRUD) */}
-      <section className="bg-white rounded-2xl p-5 sm:p-6 border border-black/5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+      <section className="bg-white rounded-2xl p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h3 className="text-base font-semibold flex items-center gap-2.5 text-gray-900">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <Sliders size={18} strokeWidth={2.2} />
+            <h3 className="text-base sm:text-lg xl:text-xl font-semibold flex items-center gap-3 text-gray-900">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Sliders size={20} strokeWidth={2.2} />
               </div>
               <span>Системные пороги тревог и параметры</span>
             </h3>

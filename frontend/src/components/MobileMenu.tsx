@@ -113,24 +113,21 @@ export default function MobileMenu({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex justify-start md:hidden transition-all duration-300 ease-in-out ${
-        isOpen ? "opacity-100 pointer-events-auto visible" : "opacity-0 pointer-events-none invisible"
-      }`}
+      className={`fixed inset-0 z-50 flex justify-start md:hidden transition-all duration-300 ease-in-out ${isOpen ? "opacity-100 pointer-events-auto visible" : "opacity-0 pointer-events-none invisible"
+        }`}
     >
       {/* Backdrop Overlay with smooth fade */}
       <div
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${
-          isOpen ? "opacity-100" : "opacity-0"
-        }`}
+        className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isOpen ? "opacity-100" : "opacity-0"
+          }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Drawer Panel - Smooth hardware-accelerated slide from Left */}
       <div
-        className={`relative w-[88vw] max-w-sm h-full bg-white border-r border-gray-200/80 shadow-2xl flex flex-col z-10 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } overflow-hidden`}
+        className={`relative w-[88vw] max-w-sm h-full bg-white border-r border-gray-200/80 shadow-2xl flex flex-col z-10 transform transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } overflow-hidden`}
       >
         {/* Drawer Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
@@ -209,14 +206,12 @@ export default function MobileMenu({
               <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span
-                    className={`w-2 h-2 rounded-full ${
-                      device.status === "ONLINE" ? "bg-emerald-500 pulse-live" : "bg-rose-500"
-                    }`}
+                    className={`w-2 h-2 rounded-full ${device.status === "ONLINE" ? "bg-emerald-500 pulse-live" : "bg-rose-500"
+                      }`}
                   />
                   <span
-                    className={`font-semibold ${
-                      device.status === "ONLINE" ? "text-emerald-700" : "text-rose-600"
-                    }`}
+                    className={`font-semibold ${device.status === "ONLINE" ? "text-emerald-700" : "text-rose-600"
+                      }`}
                   >
                     {device.status === "ONLINE" ? "Подключено" : "Отключено"}
                   </span>
@@ -239,7 +234,7 @@ export default function MobileMenu({
 
           {/* Section Header: Разделы */}
           <div className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-            Разделы интерфейса
+            Разделы
           </div>
 
           {/* Navigation Items */}
@@ -256,19 +251,17 @@ export default function MobileMenu({
                     onSelectTab(item.id);
                     onClose();
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left cursor-pointer ${
-                    isActive
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left cursor-pointer ${isActive
                       ? "bg-blue-50 text-blue-600 font-semibold shadow-xs"
                       : "text-gray-700 hover:bg-gray-100 active:scale-[0.99]"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                        isActive
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isActive
                           ? "bg-blue-600 text-white"
                           : "bg-gray-100 text-gray-500"
-                      }`}
+                        }`}
                     >
                       <Icon size={16} strokeWidth={isActive ? 2.2 : 2} />
                     </div>
@@ -283,9 +276,8 @@ export default function MobileMenu({
                     )}
                     <ChevronRight
                       size={15}
-                      className={`transition-transform ${
-                        isActive ? "text-blue-500 translate-x-0.5" : "text-gray-400"
-                      }`}
+                      className={`transition-transform ${isActive ? "text-blue-500 translate-x-0.5" : "text-gray-400"
+                        }`}
                     />
                   </div>
                 </button>

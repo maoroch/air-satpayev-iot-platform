@@ -33,6 +33,14 @@ import AddDeviceModal from "../components/AddDeviceModal";
 import MobileMenu from "../components/MobileMenu";
 import UserProfileSection from "../components/UserProfileSection";
 import { formatTime, formatDateWithTime } from "../utils/date";
+import {
+  MetricCardsSkeleton,
+  ChartSkeleton,
+  TableSkeleton,
+  AlertsSkeleton,
+  DiagnosticsSkeleton,
+  AuditLogsSkeleton
+} from "../components/ui";
 
 interface DeviceData {
   id: string;
@@ -138,6 +146,13 @@ export default function DashboardPage() {
   const [editingSettings, setEditingSettings] = useState<Record<string, string>>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+  // Loading states for skeleton placeholders & backend requests
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
+
   // Multi-device fleet state
   const [devicesList, setDevicesList] = useState<DeviceData[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("purifier-satpayev-01");
@@ -220,6 +235,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("[Fetch] Device error:", err);
+    } finally {
+      setIsLoadingInitial(false);
     }
   }, []);
 
@@ -236,6 +253,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("[Fetch] History error:", err);
+    } finally {
+      setIsLoadingHistory(false);
     }
   }, []);
 
@@ -250,6 +269,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("[Fetch] Notifications error:", err);
+    } finally {
+      setIsLoadingNotifications(false);
     }
   }, []);
 
@@ -264,6 +285,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("[Fetch] Audit logs error:", err);
+    } finally {
+      setIsLoadingAudit(false);
     }
   }, []);
 
@@ -278,6 +301,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("[Fetch] Diagnostics error:", err);
+    } finally {
+      setIsLoadingDiagnostics(false);
     }
   }, []);
 
@@ -310,8 +335,10 @@ export default function DashboardPage() {
     fetchNotificationsData(token);
 
     if (activeTab === "audit") {
+      if (auditLogs.length === 0) setIsLoadingAudit(true);
       fetchAuditLogsData(token);
     } else if (activeTab === "diagnostics") {
+      if (!diagnostics) setIsLoadingDiagnostics(true);
       fetchDiagnosticsData(token);
       fetchSettingsData(token);
     }
@@ -586,9 +613,9 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+    <div className="w-full max-w-[1720px] 2xl:max-w-[1800px] mx-auto px-4 sm:px-8 xl:px-12 py-5 sm:py-8 lg:py-10">
       {/* Apple-style Top Bar */}
-      <header className="flex flex-col md:flex-row justify-between items-stretch md:items-center p-4 sm:p-5 mb-6 sm:mb-8 gap-4 rounded-2xl bg-white/80 backdrop-blur-xl border border-black/5 shadow-sm">
+      <header className="flex flex-col md:flex-row justify-between items-stretch md:items-center p-4 sm:p-5 xl:p-6 mb-6 sm:mb-8 gap-4 rounded-2xl bg-white/80 backdrop-blur-xl border border-black/5 shadow-sm">
         {/* Left Branding with Top-Left Burger Button */}
         <div className="flex items-center gap-2.5 w-full md:w-auto">
           {/* Mobile Burger Menu Button - Top Left ONLY */}
@@ -619,6 +646,7 @@ export default function DashboardPage() {
               onChange={(e) => {
                 const newId = e.target.value;
                 setSelectedDeviceId(newId);
+                setIsLoadingHistory(true);
                 if (token) {
                   fetchDeviceData(token, newId);
                   fetchHistoryData(token, newId);
@@ -695,38 +723,43 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 4 Minimalist Metric Cards */}
-      <section
-        className={`${
-          ["alerts", "diagnostics", "audit", "profile"].includes(activeTab)
-            ? "hidden md:grid"
-            : "grid"
-        } grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 mb-6 sm:mb-8`}
-      >
+      {/* 4 Minimalist Metric Cards or Skeleton */}
+      {isLoadingInitial ? (
+        <MetricCardsSkeleton
+          hiddenOnMobile={["alerts", "diagnostics", "audit", "profile"].includes(activeTab)}
+        />
+      ) : (
+        <section
+          className={`${
+            ["alerts", "diagnostics", "audit", "profile"].includes(activeTab)
+              ? "hidden md:grid"
+              : "grid"
+          } grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 xl:gap-6 mb-6 sm:mb-8`}
+        >
         {/* Card 1: Температура */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-medium text-gray-500">
+            <span className="text-xs sm:text-sm font-medium text-gray-500">
               Температура воздуха
             </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Thermometer size={18} strokeWidth={2} />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Thermometer size={20} strokeWidth={2} />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+          <div className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1.5">
             {device.status === "ONLINE" && device.last_temperature !== null
               ? `${device.last_temperature.toFixed(1)}°`
               : "0°"}
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
               {device.status === "ONLINE"
                 ? (device.last_temperature !== null && device.last_temperature <= 30.0 ? "Норма (18–26 °C)" : "Повышенная")
                 : "Отключено"}
             </span>
-            <span className="text-gray-400">SHT31 (I2C)</span>
+            <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
           </div>
-          <div className="h-1 bg-gray-100 rounded-full mt-3.5 overflow-hidden">
+          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-500"
               style={{
@@ -739,29 +772,29 @@ export default function DashboardPage() {
         </div>
 
         {/* Card 2: Влажность */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-medium text-gray-500">
+            <span className="text-xs sm:text-sm font-medium text-gray-500">
               Относительная влажность
             </span>
-            <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-              <Droplets size={18} strokeWidth={2} />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+              <Droplets size={20} strokeWidth={2} />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight mb-1">
+          <div className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1.5">
             {device.status === "ONLINE" && device.last_humidity !== null
               ? `${device.last_humidity.toFixed(1)}%`
               : "0%"}
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
               {device.status === "ONLINE"
                 ? (device.last_humidity !== null && device.last_humidity >= 30 && device.last_humidity <= 60 ? "Оптимально (40–60%)" : "В норме")
                 : "Отключено"}
             </span>
-            <span className="text-gray-400">SHT31 (I2C)</span>
+            <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
           </div>
-          <div className="h-1 bg-gray-100 rounded-full mt-3.5 overflow-hidden">
+          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
             <div
               className="h-full bg-teal-500 rounded-full transition-all duration-500"
               style={{
@@ -774,24 +807,24 @@ export default function DashboardPage() {
         </div>
 
         {/* Card 3: Ресурс фильтра */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-medium text-gray-500">
+            <span className="text-xs sm:text-sm font-medium text-gray-500">
               Ресурс фильтра HEPA
             </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ShieldCheck size={18} strokeWidth={2} />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ShieldCheck size={20} strokeWidth={2} />
             </div>
           </div>
-          <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">
+          <div className="flex items-baseline gap-2 mb-1.5">
+            <span className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight">
               {device.filter_life_percent.toFixed(1)}%
             </span>
-            <span className="text-[11px] text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400 font-mono">
               ({device.filter_hours_used.toFixed(0)}/{device.filter_hours_max}ч)
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="text-gray-400">Наработка</span>
             {(activeRole === "ADMIN" || activeRole === "OPERATOR") && (
               <button
@@ -802,7 +835,7 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          <div className="h-1 bg-gray-100 rounded-full mt-3.5 overflow-hidden">
+          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 device.filter_life_percent > 20 ? "bg-emerald-500" : "bg-rose-500"
@@ -813,26 +846,26 @@ export default function DashboardPage() {
         </div>
 
         {/* Card 4: Состояние прибора */}
-        <div className="rounded-2xl bg-white p-4 sm:p-5 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-medium text-gray-500">
+            <span className="text-xs sm:text-sm font-medium text-gray-500">
               Состояние прибора
             </span>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${
               device.status === "ONLINE" && device.fan_active
-                ? "bg-blue-50 text-blue-600 spin-active"
+                ? "bg-blue-50 text-blue-600"
                 : "bg-gray-100 text-gray-400"
             }`}>
-              <Wind size={18} strokeWidth={2} />
+              <Wind size={20} strokeWidth={2} />
             </div>
           </div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`w-2 h-2 rounded-full ${
+          <div className="flex items-center gap-2.5 mb-3.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${
               device.status === "ONLINE"
                 ? (device.fan_active ? "bg-emerald-500" : "bg-gray-400")
                 : "bg-rose-500"
             }`} />
-            <span className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
+            <span className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 tracking-tight">
               {device.status === "ONLINE"
                 ? (device.fan_active ? "Очистка активна" : "Прибор остановлен")
                 : "Отключено"}
@@ -842,7 +875,7 @@ export default function DashboardPage() {
             <button
               onClick={handleToggleFan}
               disabled={commandLoading || device.status !== "ONLINE"}
-              className={`w-full py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
+              className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm xl:text-base font-medium transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm ${
                 device.status !== "ONLINE"
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : (device.fan_active
@@ -850,7 +883,7 @@ export default function DashboardPage() {
                       : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer")
               }`}
             >
-              <Power size={14} strokeWidth={2.2} />
+              <Power size={16} strokeWidth={2.2} />
               <span>
                 {device.status !== "ONLINE"
                   ? "Прибор отключен"
@@ -864,11 +897,12 @@ export default function DashboardPage() {
           )}
         </div>
       </section>
+      )}
 
       {/* Desktop Navigation Bar (hidden on mobile, navigation is via top-left burger menu) */}
-      <div className="hidden md:flex justify-between items-center gap-3 mb-6">
+      <div className="hidden md:flex justify-between items-center gap-4 mb-6 sm:mb-8">
         <div className="overflow-x-auto no-scrollbar pb-1">
-          <div className="inline-flex items-center bg-gray-100/90 p-1 rounded-xl gap-1 whitespace-nowrap">
+          <div className="inline-flex items-center bg-gray-100/90 p-1.5 rounded-2xl gap-1.5 whitespace-nowrap">
             {[
               { id: "overview", label: "Аналитика", icon: Activity },
               { id: "history", label: "История замеров", icon: Clock },
@@ -882,13 +916,13 @@ export default function DashboardPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                     isActive
                       ? "bg-white text-gray-900 font-semibold shadow-sm"
                       : "text-gray-500 hover:text-gray-900"
                   }`}
                 >
-                  <Icon size={14} strokeWidth={2} />
+                  <Icon size={16} strokeWidth={2} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -898,64 +932,81 @@ export default function DashboardPage() {
 
         <button
           onClick={handleExportCSV}
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-200/80 shadow-sm transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-200/80 shadow-sm transition-all cursor-pointer active:scale-95 whitespace-nowrap"
         >
-          <Download size={14} strokeWidth={2} />
+          <Download size={16} strokeWidth={2} />
           <span>Экспорт в CSV</span>
         </button>
       </div>
 
-      {/* Mobile Section Title (Clean light theme title) */}
-      <div className="flex md:hidden items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-900 tracking-tight">
-          {activeTab === "overview" && "Аналитика динамики климата"}
-          {activeTab === "history" && "История замеров датчиков"}
-          {activeTab === "alerts" && `Центр тревог (${notifications.filter((n) => !n.is_resolved).length})`}
-          {activeTab === "diagnostics" && "Диагностика и настройки"}
-          {activeTab === "audit" && "Журнал аудита действий"}
-          {activeTab === "profile" && "Профиль и права доступа"}
-        </h2>
-      </div>
 
       {/* TAB 1: OVERVIEW & CHART */}
-      {activeTab === "overview" && <ClimateDynamicsChart history={history} />}
+      {activeTab === "overview" && (
+        isLoadingHistory ? <ChartSkeleton /> : <ClimateDynamicsChart history={history} />
+      )}
 
       {/* TAB 2: HISTORY TABLE */}
       {activeTab === "history" && (
-        <MeasurementHistoryTable
-          history={history}
-          onRefresh={() => token && fetchHistoryData(token, selectedDeviceId)}
-        />
+        isLoadingHistory ? (
+          <TableSkeleton />
+        ) : (
+          <MeasurementHistoryTable
+            history={history}
+            onRefresh={() => {
+              if (token) {
+                setIsLoadingHistory(true);
+                fetchHistoryData(token, selectedDeviceId);
+              }
+            }}
+          />
+        )
       )}
 
       {/* TAB 3: ALERTS */}
       {activeTab === "alerts" && (
-        <AlertsCenter
-          notifications={notifications}
-          onResolveAlert={handleResolveAlert}
-        />
+        isLoadingNotifications ? (
+          <AlertsSkeleton />
+        ) : (
+          <AlertsCenter
+            notifications={notifications}
+            onResolveAlert={handleResolveAlert}
+          />
+        )
       )}
 
       {/* TAB 4: DIAGNOSTICS & SETTINGS */}
       {activeTab === "diagnostics" && (
-        <DiagnosticsAndSettings
-          device={device}
-          diagnostics={diagnostics}
-          settingsMap={settingsMap}
-          editingSettings={editingSettings}
-          onEditingSettingsChange={setEditingSettings}
-          activeRole={activeRole}
-          onSaveSetting={handleSaveSetting}
-          isSavingSettings={isSavingSettings}
-        />
+        isLoadingDiagnostics || !diagnostics ? (
+          <DiagnosticsSkeleton />
+        ) : (
+          <DiagnosticsAndSettings
+            device={device}
+            diagnostics={diagnostics}
+            settingsMap={settingsMap}
+            editingSettings={editingSettings}
+            onEditingSettingsChange={setEditingSettings}
+            activeRole={activeRole}
+            onSaveSetting={handleSaveSetting}
+            isSavingSettings={isSavingSettings}
+          />
+        )
       )}
 
       {/* TAB 5: AUDIT LOGS */}
       {activeTab === "audit" && (
-        <AuditLogsViewer
-          auditLogs={auditLogs}
-          onRefresh={() => token && fetchAuditLogsData(token)}
-        />
+        isLoadingAudit ? (
+          <AuditLogsSkeleton />
+        ) : (
+          <AuditLogsViewer
+            auditLogs={auditLogs}
+            onRefresh={() => {
+              if (token) {
+                setIsLoadingAudit(true);
+                fetchAuditLogsData(token);
+              }
+            }}
+          />
+        )
       )}
 
       {/* TAB 6: PROFILE & ACCESS CONTROL */}
@@ -1039,6 +1090,7 @@ export default function DashboardPage() {
         selectedDeviceId={selectedDeviceId}
         onSelectDevice={(newId) => {
           setSelectedDeviceId(newId);
+          setIsLoadingHistory(true);
           if (token) {
             fetchDeviceData(token, newId);
             fetchHistoryData(token, newId);
