@@ -31,6 +31,7 @@ import DiagnosticsAndSettings from "../components/DiagnosticsAndSettings";
 import AuditLogsViewer from "../components/AuditLogsViewer";
 import AddDeviceModal from "../components/AddDeviceModal";
 import MobileMenu from "../components/MobileMenu";
+import UserProfileSection from "../components/UserProfileSection";
 import { formatTime, formatDateWithTime } from "../utils/date";
 
 interface DeviceData {
@@ -111,7 +112,7 @@ export default function DashboardPage() {
   // Authentication & Navigation
   const [activeRole, setActiveRole] = useState<"ADMIN" | "OPERATOR" | "TECH">("ADMIN");
   const [token, setToken] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "alerts" | "diagnostics" | "audit">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "alerts" | "diagnostics" | "audit" | "profile">("overview");
 
   // Device & Telemetry state
   const [device, setDevice] = useState<DeviceData>({
@@ -148,6 +149,7 @@ export default function DashboardPage() {
   const [filterComment, setFilterComment] = useState("Плановая замена фильтра HEPA H13");
   const [commandLoading, setCommandLoading] = useState(false);
   const [lastActionMsg, setLastActionMsg] = useState<string | null>(null);
+  const lastTelemetryAtRef = useRef<number>(Date.now());
 
   // 1. Automatic JWT Login on role switch
   useEffect(() => {
@@ -204,7 +206,17 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setDevice(data);
+        if (data.status === "OFFLINE") {
+          setDevice({
+            ...data,
+            last_temperature: 0,
+            last_humidity: 0,
+            fan_active: false
+          });
+        } else {
+          lastTelemetryAtRef.current = Date.now();
+          setDevice(data);
+        }
       }
     } catch (err) {
       console.error("[Fetch] Device error:", err);
@@ -346,25 +358,39 @@ export default function DashboardPage() {
           try {
             const msg = JSON.parse(event.data);
             if (msg.device_id === selectedDeviceId) {
-              setDevice((prev) => ({
-                ...prev,
-                last_temperature: msg.temperature ?? prev.last_temperature,
-                last_humidity: msg.humidity ?? prev.last_humidity,
-                fan_active: typeof msg.fan_active === "boolean" ? msg.fan_active : prev.fan_active,
-                status: "ONLINE",
-                last_seen: msg.recorded_at || new Date().toISOString()
-              }));
+              if (msg.type === "DEVICE_OFFLINE" || msg.status === "OFFLINE") {
+                setDevice((prev) => ({
+                  ...prev,
+                  status: "OFFLINE",
+                  last_temperature: 0,
+                  last_humidity: 0,
+                  fan_active: false
+                }));
+              } else {
+                lastTelemetryAtRef.current = Date.now();
+                setDevice((prev) => ({
+                  ...prev,
+                  last_temperature: msg.temperature ?? prev.last_temperature,
+                  last_humidity: msg.humidity ?? prev.last_humidity,
+                  fan_active: typeof msg.fan_active === "boolean" ? msg.fan_active : prev.fan_active,
+                  status: "ONLINE",
+                  last_seen: msg.recorded_at || new Date().toISOString(),
+                  filter_life_percent: msg.filter_life_percent ?? prev.filter_life_percent,
+                  filter_hours_used: msg.filter_hours_used ?? prev.filter_hours_used,
+                  filter_hours_max: msg.filter_hours_max ?? prev.filter_hours_max
+                }));
 
-              setHistory((prev) => {
-                const newPoint: HistoryPoint = {
-                  recorded_at: msg.recorded_at || new Date().toISOString(),
-                  temperature: msg.temperature ?? null,
-                  humidity: msg.humidity ?? null,
-                  fan_active: msg.fan_active ?? true
-                };
-                const next = [...prev, newPoint];
-                return next.slice(-30);
-              });
+                setHistory((prev) => {
+                  const newPoint: HistoryPoint = {
+                    recorded_at: msg.recorded_at || new Date().toISOString(),
+                    temperature: msg.temperature ?? null,
+                    humidity: msg.humidity ?? null,
+                    fan_active: msg.fan_active ?? true
+                  };
+                  const next = [...prev, newPoint];
+                  return next.slice(-30);
+                });
+              }
             }
           } catch (e) {
             console.error("[WS] Message parsing error:", e);
@@ -389,6 +415,30 @@ export default function DashboardPage() {
         ws.close();
       }
     };
+  }, [selectedDeviceId]);
+
+  // 4. Watchdog: Auto-detect offline status if simulator stops transmitting (15s threshold)
+  useEffect(() => {
+    const watchdog = setInterval(() => {
+      setDevice((prev) => {
+        if (prev.status === "ONLINE") {
+          const elapsedMs = Date.now() - lastTelemetryAtRef.current;
+          // If no message arrived for more than 15 seconds, mark offline
+          if (elapsedMs > 15000) {
+            return {
+              ...prev,
+              status: "OFFLINE",
+              last_temperature: 0,
+              last_humidity: 0,
+              fan_active: false
+            };
+          }
+        }
+        return prev;
+      });
+    }, 3000);
+
+    return () => clearInterval(watchdog);
   }, []);
 
   // 4. Handlers
@@ -605,46 +655,35 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Right Section: User Profile & Segmented Switcher (hidden on mobile, present in burger menu) */}
-        <div className="hidden md:flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-          <div className="flex items-center justify-between sm:justify-start gap-2">
-            {/* Status badge */}
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-              device.status === "ONLINE"
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
-                : "bg-rose-50 text-rose-700 border-rose-200/60"
-            }`}>
-              <span
-                className={`w-2 h-2 rounded-full pulse-live ${
-                  device.status === "ONLINE" ? "bg-emerald-500" : "bg-rose-500"
-                }`}
-              />
-              {device.status === "ONLINE" ? "Подключено" : "Офлайн"}
-            </div>
-
-            {/* User Email Indicator */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-gray-500 bg-gray-100/80 border border-black/5">
-              <User size={13} className="text-blue-600" />
-              <span>{ROLE_PROFILES[activeRole].email}</span>
-            </div>
+        {/* Right Section: Status Badge & Profile Button (role switcher moved to dedicated Profile page) */}
+        <div className="hidden md:flex items-center gap-2.5 w-full md:w-auto">
+          {/* Status badge */}
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+            device.status === "ONLINE"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200/70"
+              : "bg-rose-50 text-rose-700 border-rose-200/70"
+          }`}>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                device.status === "ONLINE" ? "bg-emerald-500 pulse-live" : "bg-rose-500"
+              }`}
+            />
+            {device.status === "ONLINE" ? "Подключено" : "Отключено"}
           </div>
 
-          {/* Role Segmented Switcher */}
-          <div className="grid grid-cols-3 sm:flex items-center bg-gray-100/90 p-1 rounded-xl gap-1 text-center">
-            {(["ADMIN", "OPERATOR", "TECH"] as const).map((role) => (
-              <button
-                key={role}
-                onClick={() => setActiveRole(role)}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                  activeRole === role
-                    ? "bg-white text-gray-900 font-semibold shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
-                }`}
-              >
-                {ROLE_PROFILES[role].label}
-              </button>
-            ))}
-          </div>
+          {/* Profile Navigation Button */}
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs sm:text-sm font-medium transition-all active:scale-95 cursor-pointer shadow-xs ${
+              activeTab === "profile"
+                ? "bg-blue-600 text-white border-blue-600 shadow-blue-500/20"
+                : "bg-gray-100/90 hover:bg-gray-200 text-gray-700 border-black/5"
+            }`}
+            title="Перейти в профиль пользователя и управление доступом"
+          >
+            <User size={15} className={activeTab === "profile" ? "text-white" : "text-blue-600"} />
+            <span>Профиль ({ROLE_PROFILES[activeRole].label})</span>
+          </button>
         </div>
       </header>
 
@@ -657,7 +696,13 @@ export default function DashboardPage() {
       )}
 
       {/* 4 Minimalist Metric Cards */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 mb-6 sm:mb-8">
+      <section
+        className={`${
+          ["alerts", "diagnostics", "audit", "profile"].includes(activeTab)
+            ? "hidden md:grid"
+            : "grid"
+        } grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 mb-6 sm:mb-8`}
+      >
         {/* Card 1: Температура */}
         <div className="rounded-2xl bg-white p-4 sm:p-5 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
           <div className="flex justify-between items-center mb-3">
@@ -669,18 +714,26 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight mb-1">
-            {device.last_temperature !== null ? `${device.last_temperature.toFixed(1)}°` : "--"}
+            {device.status === "ONLINE" && device.last_temperature !== null
+              ? `${device.last_temperature.toFixed(1)}°`
+              : "0°"}
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-emerald-600 font-medium">
-              {device.last_temperature !== null && device.last_temperature <= 30.0 ? "Норма (18–26 °C)" : "Повышенная"}
+            <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
+              {device.status === "ONLINE"
+                ? (device.last_temperature !== null && device.last_temperature <= 30.0 ? "Норма (18–26 °C)" : "Повышенная")
+                : "Отключено"}
             </span>
             <span className="text-gray-400">SHT31 (I2C)</span>
           </div>
           <div className="h-1 bg-gray-100 rounded-full mt-3.5 overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, (((device.last_temperature || 20) - 15) / 20) * 100))}%` }}
+              style={{
+                width: device.status === "ONLINE"
+                  ? `${Math.min(100, Math.max(0, (((device.last_temperature || 20) - 15) / 20) * 100))}%`
+                  : "0%"
+              }}
             />
           </div>
         </div>
@@ -696,18 +749,26 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight mb-1">
-            {device.last_humidity !== null ? `${device.last_humidity.toFixed(1)}%` : "--"}
+            {device.status === "ONLINE" && device.last_humidity !== null
+              ? `${device.last_humidity.toFixed(1)}%`
+              : "0%"}
           </div>
           <div className="flex items-center justify-between text-xs">
-            <span className="text-emerald-600 font-medium">
-              {device.last_humidity !== null && device.last_humidity >= 30 && device.last_humidity <= 60 ? "Оптимально (40–60%)" : "В норме"}
+            <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
+              {device.status === "ONLINE"
+                ? (device.last_humidity !== null && device.last_humidity >= 30 && device.last_humidity <= 60 ? "Оптимально (40–60%)" : "В норме")
+                : "Отключено"}
             </span>
             <span className="text-gray-400">SHT31 (I2C)</span>
           </div>
           <div className="h-1 bg-gray-100 rounded-full mt-3.5 overflow-hidden">
             <div
               className="h-full bg-teal-500 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.max(0, device.last_humidity || 50))}%` }}
+              style={{
+                width: device.status === "ONLINE"
+                  ? `${Math.min(100, Math.max(0, device.last_humidity || 50))}%`
+                  : "0%"
+              }}
             />
           </div>
         </div>
@@ -758,29 +819,43 @@ export default function DashboardPage() {
               Состояние прибора
             </span>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              device.fan_active ? "bg-blue-50 text-blue-600 spin-active" : "bg-gray-100 text-gray-400"
+              device.status === "ONLINE" && device.fan_active
+                ? "bg-blue-50 text-blue-600 spin-active"
+                : "bg-gray-100 text-gray-400"
             }`}>
               <Wind size={18} strokeWidth={2} />
             </div>
           </div>
           <div className="flex items-center gap-2 mb-3">
-            <span className={`w-2 h-2 rounded-full ${device.fan_active ? "bg-emerald-500" : "bg-gray-400"}`} />
+            <span className={`w-2 h-2 rounded-full ${
+              device.status === "ONLINE"
+                ? (device.fan_active ? "bg-emerald-500" : "bg-gray-400")
+                : "bg-rose-500"
+            }`} />
             <span className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
-              {device.fan_active ? "Очистка активна" : "Прибор остановлен"}
+              {device.status === "ONLINE"
+                ? (device.fan_active ? "Очистка активна" : "Прибор остановлен")
+                : "Отключено"}
             </span>
           </div>
           {activeRole === "ADMIN" || activeRole === "OPERATOR" ? (
             <button
               onClick={handleToggleFan}
-              disabled={commandLoading}
-              className={`w-full py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
-                device.fan_active
-                  ? "bg-rose-600 hover:bg-rose-700 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={commandLoading || device.status !== "ONLINE"}
+              className={`w-full py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm ${
+                device.status !== "ONLINE"
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : (device.fan_active
+                      ? "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer")
               }`}
             >
               <Power size={14} strokeWidth={2.2} />
-              <span>{device.fan_active ? "Остановить вентилятор" : "Запустить вентилятор"}</span>
+              <span>
+                {device.status !== "ONLINE"
+                  ? "Прибор отключен"
+                  : (device.fan_active ? "Остановить вентилятор" : "Запустить вентилятор")}
+              </span>
             </button>
           ) : (
             <div className="text-xs text-gray-400 pt-1">
@@ -838,6 +913,7 @@ export default function DashboardPage() {
           {activeTab === "alerts" && `Центр тревог (${notifications.filter((n) => !n.is_resolved).length})`}
           {activeTab === "diagnostics" && "Диагностика и настройки"}
           {activeTab === "audit" && "Журнал аудита действий"}
+          {activeTab === "profile" && "Профиль и права доступа"}
         </h2>
       </div>
 
@@ -879,6 +955,15 @@ export default function DashboardPage() {
         <AuditLogsViewer
           auditLogs={auditLogs}
           onRefresh={() => token && fetchAuditLogsData(token)}
+        />
+      )}
+
+      {/* TAB 6: PROFILE & ACCESS CONTROL */}
+      {activeTab === "profile" && (
+        <UserProfileSection
+          activeRole={activeRole}
+          onSelectRole={setActiveRole}
+          token={token}
         />
       )}
 

@@ -157,33 +157,7 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-          {/* Segmented Filter Mode: ALL / TEMP / HUM */}
-          <div className="inline-flex items-center bg-gray-100/90 p-1 rounded-xl gap-1">
-            <button
-              onClick={() => setViewMode("ALL")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                viewMode === "ALL" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Все данные
-            </button>
-            <button
-              onClick={() => setViewMode("TEMP")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                viewMode === "TEMP" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Температура
-            </button>
-            <button
-              onClick={() => setViewMode("HUM")}
-              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
-                viewMode === "HUM" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              Влажность
-            </button>
-          </div>
+
 
           {/* Interactive Legend */}
           <div className="flex items-center gap-3 text-xs">
@@ -199,6 +173,30 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                 <span>Влажность (%)</span>
               </div>
             )}
+          </div>
+          {/* Segmented Filter Mode: ALL / TEMP / HUM */}
+          <div className="inline-flex items-center bg-gray-100/90 p-1 rounded-xl gap-1">
+            <button
+              onClick={() => setViewMode("ALL")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${viewMode === "ALL" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+                }`}
+            >
+              Все данные
+            </button>
+            <button
+              onClick={() => setViewMode("TEMP")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${viewMode === "TEMP" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+                }`}
+            >
+              Температура
+            </button>
+            <button
+              onClick={() => setViewMode("HUM")}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${viewMode === "HUM" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+                }`}
+            >
+              Влажность
+            </button>
           </div>
         </div>
       </div>
@@ -349,29 +347,28 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                   Math.max(12, ((chartData.getX(hoverIndex) / width) * 100))
                 ) + "%",
               }}
-              className="absolute top-3.5 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-20 min-w-[190px]"
+              className="absolute top-3.5 -translate-x-1/2 bg-white/95 backdrop-blur-xl border border-black/10 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-20 min-w-[190px]"
             >
-              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-1.5 mb-2">
-                <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 text-xs">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-1.5 mb-2">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs">
                   <Clock size={12} />
                   <span>{formatLocalTime(hoveredItem.recorded_at)}</span>
                 </div>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                    hoveredItem.fan_active
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                      : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                  }`}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-semibold border ${hoveredItem.fan_active
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                    : "bg-gray-100 text-gray-600 border-gray-200/60"
+                    }`}
                 >
                   {hoveredItem.fan_active ? "Вентилятор ВКЛ" : "Вентилятор ВЫКЛ"}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between gap-3">
-                  <span className="text-blue-500 font-medium flex items-center gap-1">
+                  <span className="text-blue-600 font-medium flex items-center gap-1">
                     <Thermometer size={13} /> Температура:
                   </span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="font-semibold text-gray-900">
                     {hoveredItem.temperature !== null ? `${hoveredItem.temperature.toFixed(1)} °C` : "--"}
                   </span>
                 </div>
@@ -379,7 +376,7 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                   <span className="text-emerald-600 font-medium flex items-center gap-1">
                     <Droplets size={13} /> Влажность:
                   </span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="font-semibold text-gray-900">
                     {hoveredItem.humidity !== null ? `${hoveredItem.humidity.toFixed(1)} %` : "--"}
                   </span>
                 </div>
@@ -392,21 +389,21 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
             style={{
               padding: `0 ${padRight}px 0 ${padLeft}px`
             }}
-            className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 mt-2.5 text-xs text-zinc-400 dark:text-zinc-500"
+            className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 mt-2.5 text-xs text-gray-400"
           >
             <span>
-              Начало окна: <strong className="text-zinc-700 dark:text-zinc-300">{formatLocalTime(history[0]?.recorded_at)}</strong>
+              Начало окна: <strong className="text-gray-700 font-medium">{formatLocalTime(history[0]?.recorded_at)}</strong>
             </span>
-            <span className="text-zinc-500 dark:text-zinc-400">
+            <span className="text-gray-500">
               Шкала: {chartData.minT}°–{chartData.maxT}°C • {chartData.minH}%–{chartData.maxH}%
             </span>
             <span>
-              Текущий замер: <strong className="text-zinc-700 dark:text-zinc-300">{formatLocalTime(history[history.length - 1]?.recorded_at)}</strong>
+              Текущий замер: <strong className="text-gray-700 font-medium">{formatLocalTime(history[history.length - 1]?.recorded_at)}</strong>
             </span>
           </div>
         </div>
       ) : (
-        <div className="py-12 px-5 text-center text-sm text-zinc-400 dark:text-zinc-500">
+        <div className="py-12 px-5 text-center text-sm text-gray-400">
           <RefreshCw size={24} className="animate-spin mx-auto mb-3 opacity-60" />
           <p>Ожидание накопления замеров телеметрии от прибора...</p>
         </div>

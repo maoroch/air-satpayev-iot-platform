@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, FileText, Clock, User } from "lucide-react";
 import { formatDateWithTime } from "../utils/date";
 
 export interface AuditLogItem {
@@ -22,22 +22,22 @@ export default function AuditLogsViewer({
   onRefresh
 }: AuditLogsViewerProps) {
   return (
-    <section className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+    <section className="bg-white rounded-2xl p-5 sm:p-7 border border-black/5 shadow-sm animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-gray-100">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Журнал аудита действий пользователей (FR-13)
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Хронологическая запись всех операций и команд из PostgreSQL.
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <FileText size={18} strokeWidth={2.2} />
+            </div>
+            <h2 className="text-base sm:text-lg font-semibold tracking-tight text-gray-900">
+              Журнал аудита действий пользователей (FR-13)
+            </h2>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Неизменяемый журнал операций и команд управления очистителем воздуха из PostgreSQL.
           </p>
         </div>
-        <button
-          onClick={onRefresh}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 rounded-lg transition-colors self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw size={14} /> Обновить
-        </button>
+
       </div>
 
       <div className="flex flex-col gap-2.5">
@@ -45,22 +45,31 @@ export default function AuditLogsViewer({
           auditLogs.map((log) => (
             <div
               key={log.id}
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:px-4 sm:py-3 bg-zinc-50 dark:bg-zinc-800/40 border border-black/5 dark:border-white/5 rounded-xl text-sm transition-colors hover:border-black/10 dark:hover:border-white/10"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 sm:px-4 sm:py-3.5 bg-gray-50 hover:bg-gray-100/80 border border-gray-200/60 rounded-xl text-sm transition-colors"
             >
-              <div className="flex items-start sm:items-center gap-2">
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 shrink-0">
-                  [{log.action}]
+              <div className="flex items-start sm:items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                <span className="text-xs font-mono font-semibold text-blue-700 bg-blue-50 border border-blue-200/70 px-2 py-0.5 rounded-md shrink-0">
+                  {log.action}
                 </span>
-                <span className="text-zinc-800 dark:text-zinc-200">{log.details}</span>
+                <span className="text-gray-900 font-medium">{log.details}</span>
               </div>
-              <div className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap self-end sm:self-auto">
-                {log.user_email} • {formatDateWithTime(log.created_at)}
+              <div className="flex items-center gap-3 text-xs text-gray-400 whitespace-nowrap self-end sm:self-auto shrink-0">
+                <span className="inline-flex items-center gap-1 text-gray-500 font-mono">
+                  <User size={12} className="text-gray-400" />
+                  {log.user_email}
+                </span>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1 text-gray-400">
+                  <Clock size={12} />
+                  {formatDateWithTime(log.created_at)}
+                </span>
               </div>
             </div>
           ))
         ) : (
-          <div className="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
-            Журнал аудита пуст.
+          <div className="py-12 text-center text-sm text-gray-400">
+            <FileText size={32} className="mx-auto text-gray-300 mb-2" />
+            <p>Журнал аудита пока пуст.</p>
           </div>
         )}
       </div>

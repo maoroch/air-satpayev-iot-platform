@@ -33,13 +33,7 @@ export default function MeasurementHistoryTable({
             Реальные измерения из базы данных PostgreSQL. Статус вентилятора фиксируется в каждом цикле опроса.
           </p>
         </div>
-        <button
-          onClick={onRefresh}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95"
-        >
-          <RefreshCw size={13} />
-          <span>Обновить</span>
-        </button>
+
       </div>
 
       <div className="overflow-x-auto no-scrollbar -mx-4 sm:mx-0">
@@ -68,11 +62,10 @@ export default function MeasurementHistoryTable({
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${
-                        row.fan_active
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${row.fan_active
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
                           : "bg-gray-100 text-gray-600 border-gray-200/60"
-                      }`}
+                        }`}
                     >
                       {row.fan_active ? "Работает" : "Остановлен"}
                     </span>
