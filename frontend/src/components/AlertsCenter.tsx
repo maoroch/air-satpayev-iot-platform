@@ -24,32 +24,34 @@ export default function AlertsCenter({
   onResolveAlert
 }: AlertsCenterProps) {
   return (
-    <section className="apple-card" style={{ padding: "24px 28px" }}>
-      <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: 18, letterSpacing: "-0.015em" }}>
+    <section className="rounded-2xl bg-white p-4 sm:p-7 border border-black/5 shadow-sm mb-6 sm:mb-8">
+      <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight mb-4">
         Центр уведомлений и предупреждений
       </h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {notifications.length > 0 ? (
           notifications.map((notif) => (
             <div
               key={notif.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px 20px",
-                borderRadius: "var(--radius-sm)",
-                background: notif.is_resolved ? "rgba(0, 0, 0, 0.02)" : "rgba(255, 59, 48, 0.06)",
-                border: `1px solid ${notif.is_resolved ? "var(--border-divider)" : "rgba(255, 59, 48, 0.15)"}`
-              }}
+              className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl gap-3 transition-colors border ${
+                notif.is_resolved
+                  ? "bg-gray-50/50 border-gray-100"
+                  : "bg-red-50/50 border-red-200/60"
+              }`}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <AlertTriangle size={22} color={notif.is_resolved ? "var(--text-muted)" : "var(--accent-red)"} />
+              <div className="flex items-center gap-3.5">
+                <div className={`p-2 rounded-lg flex-shrink-0 ${
+                  notif.is_resolved ? "bg-gray-100 text-gray-400" : "bg-red-100/70 text-red-600"
+                }`}>
+                  <AlertTriangle size={18} />
+                </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: "0.875rem", color: notif.is_resolved ? "var(--text-muted)" : "var(--text-primary)" }}>
+                  <div className={`text-sm font-semibold ${
+                    notif.is_resolved ? "text-gray-400" : "text-gray-900"
+                  }`}>
                     {notif.title}
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                  <div className="text-xs text-gray-500 mt-0.5">
                     {notif.message} • {formatDateWithTime(notif.created_at)}
                   </div>
                 </div>
@@ -57,8 +59,7 @@ export default function AlertsCenter({
               {!notif.is_resolved && (
                 <button
                   onClick={() => onResolveAlert(notif.id)}
-                  className="btn btn-outline"
-                  style={{ fontSize: "0.75rem", padding: "6px 12px" }}
+                  className="self-end sm:self-center px-3 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95"
                 >
                   Подтвердить
                 </button>
@@ -66,9 +67,9 @@ export default function AlertsCenter({
             </div>
           ))
         ) : (
-          <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-            <CheckCircle2 size={24} color="var(--accent-green)" style={{ margin: "0 auto 10px auto" }} />
-            <p>Все параметры в норме. Активных предупреждений нет.</p>
+          <div className="py-12 px-4 text-center text-gray-400 text-sm">
+            <CheckCircle2 size={26} className="mx-auto mb-2 text-emerald-500" />
+            <p>Активных предупреждений нет. Система работает в штатном режиме.</p>
           </div>
         )}
       </div>

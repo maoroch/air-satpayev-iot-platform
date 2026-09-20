@@ -20,73 +20,74 @@ export default function MeasurementHistoryTable({
   history,
   onRefresh
 }: MeasurementHistoryTableProps) {
-  // Table rows in reverse order (newest first)
   const rows = useMemo(() => [...history].reverse(), [history]);
 
   return (
-    <section className="apple-card" style={{ padding: "24px 28px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+    <section className="rounded-2xl bg-white p-4 sm:p-7 border border-black/5 shadow-sm mb-6 sm:mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
         <div>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, letterSpacing: "-0.015em" }}>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
             Журнал телеметрических замеров
           </h2>
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
+          <p className="text-xs text-gray-500 mt-0.5">
             Реальные измерения из базы данных PostgreSQL. Статус вентилятора фиксируется в каждом цикле опроса.
           </p>
         </div>
         <button
           onClick={onRefresh}
-          className="btn btn-outline"
-          style={{ fontSize: "0.75rem", padding: "6px 12px" }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-700 shadow-sm transition-all cursor-pointer active:scale-95"
         >
-          <RefreshCw size={14} /> Обновить
+          <RefreshCw size={13} />
+          <span>Обновить</span>
         </button>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+      <div className="overflow-x-auto no-scrollbar -mx-4 sm:mx-0">
+        <table className="w-full text-left text-sm border-collapse min-w-[540px]">
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--border-divider)", color: "var(--text-muted)" }}>
-              <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Время</th>
-              <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Температура</th>
-              <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Влажность</th>
-              <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Вентилятор</th>
-              <th style={{ padding: "12px 16px", fontWeight: 500, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>Канал передачи</th>
+            <tr className="border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <th className="py-3 px-4">Время</th>
+              <th className="py-3 px-4">Температура</th>
+              <th className="py-3 px-4">Влажность</th>
+              <th className="py-3 px-4">Вентилятор</th>
+              <th className="py-3 px-4">Канал передачи</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-50">
             {rows.length > 0 ? (
               rows.map((row, idx) => (
-                <tr key={idx} style={{ borderBottom: "1px solid var(--border-divider)" }}>
-                  <td style={{ padding: "14px 16px", color: "var(--text-primary)", fontFamily: "var(--font-mono)", fontSize: "0.8125rem" }}>
+                <tr key={idx} className="hover:bg-gray-50/60 transition-colors">
+                  <td className="py-3 px-4 text-xs font-medium text-gray-600">
                     {formatDateWithTime(row.recorded_at)}
                   </td>
-                  <td style={{ padding: "14px 16px", color: "var(--accent-blue)", fontWeight: 600 }}>
-                    {row.temperature !== null ? `${row.temperature.toFixed(1)} °C` : "—"}
+                  <td className="py-3 px-4 text-xs font-semibold text-gray-900">
+                    {row.temperature !== null ? `${row.temperature.toFixed(1)} °C` : "--"}
                   </td>
-                  <td style={{ padding: "14px 16px", color: "var(--accent-teal)", fontWeight: 600 }}>
-                    {row.humidity !== null ? `${row.humidity.toFixed(1)} %` : "—"}
+                  <td className="py-3 px-4 text-xs font-semibold text-gray-900">
+                    {row.humidity !== null ? `${row.humidity.toFixed(1)} %` : "--"}
                   </td>
-                  <td style={{ padding: "14px 16px" }}>
-                    <span className={`badge ${row.fan_active ? "badge-online" : "badge-neutral"}`}>
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          background: row.fan_active ? "var(--accent-green)" : "#8e8e93"
-                        }}
-                      />
-                      {row.fan_active ? "Включен" : "Остановлен"}
+                  <td className="py-3 px-4">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${
+                        row.fan_active
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+                          : "bg-gray-100 text-gray-600 border-gray-200/60"
+                      }`}
+                    >
+                      {row.fan_active ? "Работает" : "Остановлен"}
                     </span>
                   </td>
-                  <td style={{ padding: "14px 16px", color: "var(--text-muted)" }}>MQTT (QoS 0)</td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono text-gray-500 bg-gray-50 border border-gray-200/60">
+                      MQTT / SHT31
+                    </span>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-muted)" }}>
-                  Замеры пока отсутствуют в базе данных. Ожидание телеметрии...
+                <td colSpan={5} className="py-8 text-center text-xs text-gray-400">
+                  Замеров пока нет. Ожидание пакетов телеметрии от брокера Mosquitto...
                 </td>
               </tr>
             )}

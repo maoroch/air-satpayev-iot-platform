@@ -55,70 +55,70 @@ export default function DiagnosticsAndSettings({
   isSavingSettings
 }: DiagnosticsAndSettingsProps) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
+    <div className="flex flex-col gap-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Box 1: Hardware Specs */}
-        <div className="apple-card" style={{ padding: "24px 28px" }}>
-          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-            <Cpu size={18} color="var(--accent-blue)" /> Аппаратная спецификация
+        <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <h3 className="text-base font-semibold mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            <Cpu size={18} className="text-blue-500" /> Аппаратная спецификация
           </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: "0.875rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>Идентификатор прибора</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{device.id}</span>
+          <div className="flex flex-col gap-3.5 text-sm">
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">Идентификатор прибора</span>
+              <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">{device.id}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>Микроконтроллер</span>
-              <span style={{ fontWeight: 500 }}>ESP32-WROOM-32 (240 МГц)</span>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">Микроконтроллер</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">ESP32-WROOM-32 (240 МГц)</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>MAC-адрес</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>{device.mac_address || "24:6F:28:AE:3C:80"}</span>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">MAC-адрес</span>
+              <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">{device.mac_address || "24:6F:28:AE:3C:80"}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>Шина сенсоров</span>
-              <span style={{ fontWeight: 500 }}>I2C (SDA: GPIO21, SCL: GPIO22)</span>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">Шина сенсоров</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">I2C (SDA: GPIO21, SCL: GPIO22)</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Сторожевой таймер (WDT)</span>
-              <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>Активен (10 с)</span>
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-500 dark:text-zinc-400">Сторожевой таймер (WDT)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Активен (10 с)</span>
             </div>
           </div>
         </div>
 
         {/* Box 2: Server Services */}
-        <div className="apple-card" style={{ padding: "24px 28px" }}>
-          <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-            <Server size={18} color="var(--accent-teal)" /> Сервисы серверной платформы
+        <div className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm">
+          <h3 className="text-base font-semibold mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            <Server size={18} className="text-teal-500" /> Сервисы серверной платформы
           </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: "0.875rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>Core Backend (FastAPI)</span>
-              <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>
+          <div className="flex flex-col gap-3.5 text-sm">
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">Core Backend (FastAPI)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                 {diagnostics ? `Версия ${diagnostics.version} (:8000)` : "Работает :8000"}
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>Аптайм сервера</span>
-              <span style={{ color: "var(--accent-blue)", fontWeight: 600 }}>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">Аптайм сервера</span>
+              <span className="text-blue-600 dark:text-blue-400 font-semibold">
                 {diagnostics?.system_uptime || "Синхронизация..."}
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>MQTT Брокер (Mosquitto)</span>
-              <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">MQTT Брокер (Mosquitto)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                 {diagnostics?.mqtt_broker_status || "mosquitto:1883"}
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-divider)", paddingBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)" }}>База данных (PostgreSQL)</span>
-              <span style={{ color: "var(--accent-green)", fontWeight: 500 }}>
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2.5">
+              <span className="text-zinc-500 dark:text-zinc-400">База данных (PostgreSQL)</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                 {diagnostics?.database_status || "CONNECTED"} (:5432)
               </span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Устройств онлайн</span>
-              <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-500 dark:text-zinc-400">Устройств онлайн</span>
+              <span className="text-zinc-900 dark:text-zinc-100 font-semibold">
                 {diagnostics?.online_devices ?? 1} из {diagnostics?.total_devices ?? 1}
               </span>
             </div>
@@ -127,42 +127,33 @@ export default function DiagnosticsAndSettings({
       </section>
 
       {/* Box 3: System Thresholds and Settings (CRUD) */}
-      <section className="apple-card" style={{ padding: "24px 28px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+      <section className="bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-2xl p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div>
-            <h3 style={{ fontSize: "1rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
-              <Sliders size={18} color="var(--accent-blue)" /> Системные пороги тревог и параметры
+            <h3 className="text-base font-semibold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+              <Sliders size={18} className="text-blue-500" /> Системные пороги тревог и параметры
             </h3>
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
               Динамические настройки хранятся в PostgreSQL. Изменение доступно для роли «Администратор».
             </p>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Object.entries(settingsMap).map(([key, setting]) => (
             <div
               key={key}
-              style={{
-                padding: "14px 18px",
-                background: "var(--bg-subtle)",
-                borderRadius: "var(--radius-sm)",
-                border: "1px solid var(--border-divider)",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                gap: 10
-              }}
+              className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-black/5 dark:border-white/5 flex flex-col justify-between gap-3 transition-colors hover:border-black/10 dark:hover:border-white/10"
             >
               <div>
-                <span style={{ fontSize: "0.75rem", fontFamily: "var(--font-mono)", color: "var(--accent-blue)", fontWeight: 600 }}>
+                <span className="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">
                   {key}
                 </span>
-                <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 4 }}>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                   {setting.description}
                 </p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="flex items-center gap-2">
                 {activeRole === "ADMIN" ? (
                   <>
                     <input
@@ -174,27 +165,19 @@ export default function DiagnosticsAndSettings({
                           [key]: e.target.value
                         })
                       }
-                      style={{
-                        flex: 1,
-                        padding: "6px 10px",
-                        background: "#ffffff",
-                        border: "1px solid rgba(0, 0, 0, 0.15)",
-                        borderRadius: "var(--radius-sm)",
-                        fontSize: "0.875rem",
-                        outline: "none"
-                      }}
+                      className="flex-1 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-black/15 dark:border-white/15 rounded-lg text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                     <button
                       onClick={() => onSaveSetting(key)}
                       disabled={isSavingSettings}
-                      className="btn btn-primary"
-                      style={{ padding: "6px 12px", fontSize: "0.75rem" }}
+                      className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors flex items-center justify-center shadow-xs"
+                      title="Сохранить настройку"
                     >
                       <Save size={13} />
                     </button>
                   </>
                 ) : (
-                  <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {setting.value}
                   </span>
                 )}

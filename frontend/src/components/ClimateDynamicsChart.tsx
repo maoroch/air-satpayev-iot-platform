@@ -144,65 +144,59 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
   const hoveredItem = hoverIndex !== null && history[hoverIndex] ? history[hoverIndex] : null;
 
   return (
-    <section className="apple-card" style={{ padding: "26px 30px", marginBottom: 28 }}>
+    <section className="rounded-2xl bg-white p-4 sm:p-7 border border-black/5 shadow-sm mb-6 sm:mb-8">
       {/* Header & Controls */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-          flexWrap: "wrap",
-          gap: 14
-        }}
-      >
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3.5">
         <div>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.015em" }}>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 tracking-tight">
             Динамика климатических параметров
           </h2>
-          <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: 2 }}>
+          <p className="text-xs text-gray-500 mt-0.5">
             Непрерывный поток телеметрии из PostgreSQL ({history.length} замеров в окне мониторинга)
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
           {/* Segmented Filter Mode: ALL / TEMP / HUM */}
-          <div className="segmented-control" style={{ padding: 3 }}>
+          <div className="inline-flex items-center bg-gray-100/90 p-1 rounded-xl gap-1">
             <button
               onClick={() => setViewMode("ALL")}
-              className={`segmented-control-btn ${viewMode === "ALL" ? "active" : ""}`}
-              style={{ fontSize: "0.75rem", padding: "4px 10px" }}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                viewMode === "ALL" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+              }`}
             >
               Все данные
             </button>
             <button
               onClick={() => setViewMode("TEMP")}
-              className={`segmented-control-btn ${viewMode === "TEMP" ? "active" : ""}`}
-              style={{ fontSize: "0.75rem", padding: "4px 10px", color: viewMode === "TEMP" ? "var(--accent-blue)" : undefined }}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                viewMode === "TEMP" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+              }`}
             >
               Температура
             </button>
             <button
               onClick={() => setViewMode("HUM")}
-              className={`segmented-control-btn ${viewMode === "HUM" ? "active" : ""}`}
-              style={{ fontSize: "0.75rem", padding: "4px 10px", color: viewMode === "HUM" ? "var(--accent-teal)" : undefined }}
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                viewMode === "HUM" ? "bg-white text-gray-900 font-semibold shadow-sm" : "text-gray-500 hover:text-gray-900"
+              }`}
             >
               Влажность
             </button>
           </div>
 
           {/* Interactive Legend */}
-          <div style={{ display: "flex", gap: 14, fontSize: "0.8125rem" }}>
+          <div className="flex items-center gap-3 text-xs">
             {(viewMode === "ALL" || viewMode === "TEMP") && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--accent-blue)" }} />
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Температура (°C)</span>
+              <div className="flex items-center gap-1.5 font-medium text-blue-600">
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                <span>Температура (°C)</span>
               </div>
             )}
             {(viewMode === "ALL" || viewMode === "HUM") && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--accent-teal)" }} />
-                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Влажность (%)</span>
+              <div className="flex items-center gap-1.5 font-medium text-emerald-600">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Влажность (%)</span>
               </div>
             )}
           </div>
@@ -211,23 +205,23 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
 
       {/* SVG Chart with Y-Axes and Tooltip */}
       {chartData.hasData ? (
-        <div style={{ position: "relative", width: "100%", overflowX: "auto" }}>
+        <div className="relative w-full overflow-x-auto">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${width} ${height}`}
-            style={{ width: "100%", height: 260, cursor: "crosshair" }}
+            className="w-full h-[260px] cursor-crosshair"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
             <defs>
-              {/* Apple-style subtle gradients */}
+              {/* Apple-style subtle gradients with vibrant sapphire blue and emerald green */}
               <linearGradient id="tempFillGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#0071e3" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#0071e3" stopOpacity="0.01" />
               </linearGradient>
               <linearGradient id="humFillGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent-teal)" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="var(--accent-teal)" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#10b981" stopOpacity="0.20" />
+                <stop offset="100%" stopColor="#10b981" stopOpacity="0.01" />
               </linearGradient>
             </defs>
 
@@ -250,8 +244,8 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                     textAnchor="end"
                     fontSize="11"
                     fontWeight="500"
-                    fill="var(--accent-blue)"
-                    opacity="0.85"
+                    fill="#0071e3"
+                    opacity="0.9"
                   >
                     {lvl.tVal}°
                   </text>
@@ -264,8 +258,8 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                     textAnchor="start"
                     fontSize="11"
                     fontWeight="500"
-                    fill="var(--accent-teal)"
-                    opacity="0.85"
+                    fill="#10b981"
+                    opacity="0.9"
                   >
                     {lvl.hVal}%
                   </text>
@@ -286,7 +280,7 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
               <path
                 d={chartData.tempPath}
                 fill="none"
-                stroke="var(--accent-blue)"
+                stroke="#0071e3"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -296,7 +290,7 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
               <path
                 d={chartData.humPath}
                 fill="none"
-                stroke="var(--accent-teal)"
+                stroke="#10b981"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -312,9 +306,9 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                     <circle
                       cx={x}
                       cy={chartData.getYTemp(h.temperature)}
-                      r={hoverIndex === i ? "5" : "3"}
+                      r={hoverIndex === i ? "5" : "3.5"}
                       fill="#ffffff"
-                      stroke="var(--accent-blue)"
+                      stroke="#0071e3"
                       strokeWidth={hoverIndex === i ? "3" : "2"}
                     />
                   )}
@@ -322,9 +316,9 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
                     <circle
                       cx={x}
                       cy={chartData.getYHum(h.humidity)}
-                      r={hoverIndex === i ? "5" : "3"}
+                      r={hoverIndex === i ? "5" : "3.5"}
                       fill="#ffffff"
-                      stroke="var(--accent-teal)"
+                      stroke="#10b981"
                       strokeWidth={hoverIndex === i ? "3" : "2"}
                     />
                   )}
@@ -350,67 +344,42 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
           {hoveredItem && hoverIndex !== null && (
             <div
               style={{
-                position: "absolute",
-                top: 14,
                 left: Math.min(
                   width - 240,
                   Math.max(12, ((chartData.getX(hoverIndex) / width) * 100))
                 ) + "%",
-                transform: "translateX(-50%)",
-                background: "rgba(255, 255, 255, 0.94)",
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
-                border: "1px solid rgba(0, 0, 0, 0.08)",
-                borderRadius: "10px",
-                padding: "10px 14px",
-                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
-                fontSize: "0.8125rem",
-                pointerEvents: "none",
-                zIndex: 10,
-                minWidth: 190
               }}
+              className="absolute top-3.5 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-20 min-w-[190px]"
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottom: "1px solid rgba(0,0,0,0.06)",
-                  paddingBottom: 6,
-                  marginBottom: 8
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--text-secondary)", fontSize: "0.75rem" }}>
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-1.5 mb-2">
+                <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 text-xs">
                   <Clock size={12} />
                   <span>{formatLocalTime(hoveredItem.recorded_at)}</span>
                 </div>
                 <span
-                  style={{
-                    fontSize: "0.7rem",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    background: hoveredItem.fan_active ? "var(--accent-green-light)" : "rgba(142, 142, 147, 0.12)",
-                    color: hoveredItem.fan_active ? "#1e7e34" : "#636366",
-                    fontWeight: 600
-                  }}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                    hoveredItem.fan_active
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}
                 >
                   {hoveredItem.fan_active ? "Вентилятор ВКЛ" : "Вентилятор ВЫКЛ"}
                 </span>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "var(--accent-blue)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between gap-3">
+                  <span className="text-blue-500 font-medium flex items-center gap-1">
                     <Thermometer size={13} /> Температура:
                   </span>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {hoveredItem.temperature !== null ? `${hoveredItem.temperature.toFixed(1)} °C` : "--"}
                   </span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "var(--accent-teal)", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="flex justify-between gap-3">
+                  <span className="text-emerald-600 font-medium flex items-center gap-1">
                     <Droplets size={13} /> Влажность:
                   </span>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     {hoveredItem.humidity !== null ? `${hoveredItem.humidity.toFixed(1)} %` : "--"}
                   </span>
                 </div>
@@ -421,29 +390,24 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
           {/* Bottom Timeline with Synchronized Local Time */}
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 10,
-              fontSize: "0.75rem",
-              color: "var(--text-muted)",
               padding: `0 ${padRight}px 0 ${padLeft}px`
             }}
+            className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 mt-2.5 text-xs text-zinc-400 dark:text-zinc-500"
           >
             <span>
-              Начало окна: <strong>{formatLocalTime(history[0]?.recorded_at)}</strong>
+              Начало окна: <strong className="text-zinc-700 dark:text-zinc-300">{formatLocalTime(history[0]?.recorded_at)}</strong>
             </span>
-            <span style={{ color: "var(--text-secondary)" }}>
+            <span className="text-zinc-500 dark:text-zinc-400">
               Шкала: {chartData.minT}°–{chartData.maxT}°C • {chartData.minH}%–{chartData.maxH}%
             </span>
             <span>
-              Текущий замер: <strong>{formatLocalTime(history[history.length - 1]?.recorded_at)}</strong>
+              Текущий замер: <strong className="text-zinc-700 dark:text-zinc-300">{formatLocalTime(history[history.length - 1]?.recorded_at)}</strong>
             </span>
           </div>
         </div>
       ) : (
-        <div style={{ padding: "48px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
-          <RefreshCw size={24} className="spin-active" style={{ margin: "0 auto 12px auto", opacity: 0.6 }} />
+        <div className="py-12 px-5 text-center text-sm text-zinc-400 dark:text-zinc-500">
+          <RefreshCw size={24} className="animate-spin mx-auto mb-3 opacity-60" />
           <p>Ожидание накопления замеров телеметрии от прибора...</p>
         </div>
       )}
