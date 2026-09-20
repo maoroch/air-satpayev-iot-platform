@@ -23,10 +23,10 @@ export default function MeasurementHistoryTable({
   const rows = useMemo(() => [...history].reverse(), [history]);
 
   return (
-    <section className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm mb-6 sm:mb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <section className="rounded-2xl bg-white p-4 sm:p-6 lg:p-5 xl:p-6 2xl:p-8 border border-black/5 shadow-sm mb-4 sm:mb-5 lg:mb-5 2xl:mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 lg:mb-4 xl:mb-5 2xl:mb-6 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 tracking-tight">
+          <h2 className="text-base sm:text-lg lg:text-base xl:text-lg 2xl:text-xl font-semibold text-gray-900 tracking-tight">
             Журнал телеметрических замеров
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -39,29 +39,29 @@ export default function MeasurementHistoryTable({
         <table className="w-full text-left text-sm border-collapse min-w-[540px]">
           <thead>
             <tr className="border-b border-gray-100 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">
-              <th className="py-3.5 px-4 sm:px-6">Время</th>
-              <th className="py-3.5 px-4 sm:px-6">Температура</th>
-              <th className="py-3.5 px-4 sm:px-6">Влажность</th>
-              <th className="py-3.5 px-4 sm:px-6">Вентилятор</th>
-              <th className="py-3.5 px-4 sm:px-6">Канал передачи</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Время</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Температура</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Влажность</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Вентилятор</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Канал передачи</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {rows.length > 0 ? (
-              rows.map((row, idx) => (
+               rows.map((row, idx) => (
                 <tr key={idx} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="py-3.5 sm:py-4 px-4 sm:px-6 text-xs sm:text-sm font-medium text-gray-600">
+                  <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6 text-xs xl:text-sm font-medium text-gray-600">
                     {formatDateWithTime(row.recorded_at)}
                   </td>
-                  <td className="py-3.5 sm:py-4 px-4 sm:px-6 text-xs sm:text-sm font-semibold text-gray-900">
+                  <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6 text-xs xl:text-sm font-semibold text-gray-900">
                     {row.temperature !== null ? `${row.temperature.toFixed(1)} °C` : "--"}
                   </td>
-                  <td className="py-3.5 sm:py-4 px-4 sm:px-6 text-xs sm:text-sm font-semibold text-gray-900">
+                  <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6 text-xs xl:text-sm font-semibold text-gray-900">
                     {row.humidity !== null ? `${row.humidity.toFixed(1)} %` : "--"}
                   </td>
-                  <td className="py-3.5 sm:py-4 px-4 sm:px-6">
+                  <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
                     <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${row.fan_active
+                      className={`inline-flex items-center px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-md text-xs font-medium border ${row.fan_active
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
                           : "bg-gray-100 text-gray-600 border-gray-200/60"
                         }`}
@@ -69,8 +69,8 @@ export default function MeasurementHistoryTable({
                       {row.fan_active ? "Работает" : "Остановлен"}
                     </span>
                   </td>
-                  <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono text-gray-500 bg-gray-50 border border-gray-200/60">
+                  <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                    <span className="inline-flex items-center px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-md text-xs font-mono text-gray-500 bg-gray-50 border border-gray-200/60">
                       MQTT / SHT31
                     </span>
                   </td>

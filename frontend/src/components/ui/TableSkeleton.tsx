@@ -7,11 +7,11 @@ interface TableSkeletonProps {
 
 export function TableSkeleton({ rowCount = 6 }: TableSkeletonProps) {
   return (
-    <section className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm mb-6 sm:mb-8 animate-in fade-in duration-200">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <section className="rounded-2xl bg-white p-4 sm:p-6 lg:p-5 xl:p-6 2xl:p-8 border border-black/5 shadow-sm mb-4 sm:mb-5 lg:mb-5 2xl:mb-8 animate-in fade-in duration-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 lg:mb-4 xl:mb-5 2xl:mb-6 gap-3 sm:gap-4">
         <div>
-          <Skeleton className="h-5 sm:h-6 xl:h-7 w-72 rounded-md mb-2" />
-          <Skeleton className="h-3.5 sm:h-4 w-96 max-w-full rounded-md" />
+          <Skeleton className="h-5 sm:h-6 lg:h-5 xl:h-6 2xl:h-7 w-64 sm:w-72 rounded-md mb-1.5 sm:mb-2" />
+          <Skeleton className="h-3.5 sm:h-4 w-80 sm:w-96 max-w-full rounded-md" />
         </div>
       </div>
 
@@ -19,30 +19,30 @@ export function TableSkeleton({ rowCount = 6 }: TableSkeletonProps) {
         <table className="w-full text-left text-sm border-collapse min-w-[540px]">
           <thead>
             <tr className="border-b border-gray-100 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">
-              <th className="py-3.5 px-4 sm:px-6">Время</th>
-              <th className="py-3.5 px-4 sm:px-6">Температура</th>
-              <th className="py-3.5 px-4 sm:px-6">Влажность</th>
-              <th className="py-3.5 px-4 sm:px-6">Вентилятор</th>
-              <th className="py-3.5 px-4 sm:px-6">Канал передачи</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Время</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Температура</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Влажность</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Вентилятор</th>
+              <th className="py-2.5 lg:py-3 xl:py-3.5 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">Канал передачи</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {Array.from({ length: rowCount }).map((_, idx) => (
               <tr key={idx} className="transition-colors">
-                <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                  <Skeleton className="h-4 w-32 rounded-md" />
+                <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                  <Skeleton className="h-3.5 sm:h-4 w-28 sm:w-32 rounded-md" />
                 </td>
-                <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                  <Skeleton className="h-4 w-16 rounded-md" />
+                <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                  <Skeleton className="h-3.5 sm:h-4 w-14 sm:w-16 rounded-md" />
                 </td>
-                <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                  <Skeleton className="h-4 w-16 rounded-md" />
+                <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                  <Skeleton className="h-3.5 sm:h-4 w-14 sm:w-16 rounded-md" />
                 </td>
-                <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                  <Skeleton className="h-5 w-20 rounded-md" />
+                <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                  <Skeleton className="h-4 sm:h-5 w-18 sm:w-20 rounded-md" />
                 </td>
-                <td className="py-3.5 sm:py-4 px-4 sm:px-6">
-                  <Skeleton className="h-5 w-24 rounded-md" />
+                <td className="py-2 lg:py-2.5 xl:py-3 2xl:py-4 px-3 sm:px-4 lg:px-4 xl:px-5 2xl:px-6">
+                  <Skeleton className="h-4 sm:h-5 w-20 sm:w-24 rounded-md" />
                 </td>
               </tr>
             ))}

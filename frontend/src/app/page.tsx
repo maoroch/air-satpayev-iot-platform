@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   Wind,
@@ -22,6 +23,7 @@ import {
   ChevronRight,
   User,
   Plus,
+  Sliders,
   Menu
 } from "lucide-react";
 import ClimateDynamicsChart from "../components/ClimateDynamicsChart";
@@ -33,6 +35,15 @@ import AddDeviceModal from "../components/AddDeviceModal";
 import MobileMenu from "../components/MobileMenu";
 import UserProfileSection from "../components/UserProfileSection";
 import { formatTime, formatDateWithTime } from "../utils/date";
+import {
+  AuthSession,
+  RoleKey,
+  getActiveSession,
+  getAuthSessions,
+  switchActiveSession,
+  removeSession,
+  logoutAll
+} from "../utils/auth";
 import {
   MetricCardsSkeleton,
   ChartSkeleton,
@@ -117,8 +128,13 @@ const WS_BASE =
 
 
 export default function DashboardPage() {
-  // Authentication & Navigation
-  const [activeRole, setActiveRole] = useState<"ADMIN" | "OPERATOR" | "TECH">("ADMIN");
+  const router = useRouter();
+
+  // Authentication & Multi-Account Session state
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [sessions, setSessions] = useState<AuthSession[]>([]);
+  const [activeSession, setActiveSession] = useState<AuthSession | null>(null);
+  const [activeRole, setActiveRole] = useState<RoleKey>("OPERATOR");
   const [token, setToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "alerts" | "diagnostics" | "audit" | "profile">("overview");
 
@@ -166,33 +182,76 @@ export default function DashboardPage() {
   const [lastActionMsg, setLastActionMsg] = useState<string | null>(null);
   const lastTelemetryAtRef = useRef<number>(Date.now());
 
-  // 1. Automatic JWT Login on role switch
-  useEffect(() => {
-    let isMounted = true;
-    async function loginWithProfile() {
-      try {
-        const creds = ROLE_PROFILES[activeRole];
-        const res = await fetch(`${API_BASE}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: creds.email, password: creds.password })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted && data.access_token) {
-            setToken(data.access_token);
-          }
-        }
-      } catch (err) {
-        console.warn("[Auth] Backend login error:", err);
-      }
-    }
+  // Dynamic Thresholds from user settings
+  const tempHighThreshold = useMemo(() => {
+    const raw = settingsMap["ALERT_TEMP_HIGH_C"]?.value;
+    const val = raw ? parseFloat(raw) : NaN;
+    return isNaN(val) ? 35.0 : val;
+  }, [settingsMap]);
 
-    loginWithProfile();
-    return () => {
-      isMounted = false;
-    };
-  }, [activeRole]);
+  const humidityMinThreshold = useMemo(() => {
+    const raw = settingsMap["ALERT_HUMIDITY_MIN"]?.value;
+    const val = raw ? parseFloat(raw) : NaN;
+    return isNaN(val) ? 20.0 : val;
+  }, [settingsMap]);
+
+  const humidityMaxThreshold = useMemo(() => {
+    const raw = settingsMap["ALERT_HUMIDITY_MAX"]?.value;
+    const val = raw ? parseFloat(raw) : NaN;
+    return isNaN(val) ? 80.0 : val;
+  }, [settingsMap]);
+
+  // 1. Session verification & route protection on mount
+  useEffect(() => {
+    const current = getActiveSession();
+    if (!current) {
+      router.replace("/login");
+      return;
+    }
+    setActiveSession(current);
+    setSessions(getAuthSessions());
+    setToken(current.token);
+    setActiveRole(current.role);
+    setIsCheckingAuth(false);
+  }, [router]);
+
+  // Session switching & management handlers
+  const handleSwitchSession = useCallback((email: string) => {
+    const switched = switchActiveSession(email);
+    if (switched) {
+      setActiveSession(switched);
+      setToken(switched.token);
+      setActiveRole(switched.role);
+      setSessions(getAuthSessions());
+      setLastActionMsg(`Переключено на аккаунт: ${switched.full_name} (${switched.role})`);
+      setTimeout(() => setLastActionMsg(null), 3500);
+    }
+  }, []);
+
+  const handleLogoutSession = useCallback((email: string) => {
+    removeSession(email);
+    const remaining = getAuthSessions();
+    setSessions(remaining);
+    const current = getActiveSession();
+    if (!current) {
+      router.replace("/login");
+    } else {
+      setActiveSession(current);
+      setToken(current.token);
+      setActiveRole(current.role);
+      setLastActionMsg(`Аккаунт ${email} удален из сессии`);
+      setTimeout(() => setLastActionMsg(null), 3000);
+    }
+  }, [router]);
+
+  const handleLogoutAll = useCallback(() => {
+    logoutAll();
+    router.replace("/login");
+  }, [router]);
+
+  const handleAddAccount = useCallback(() => {
+    router.push("/login");
+  }, [router]);
 
   // 2. Fetch Devices List, Details, History, Notifications, Audit Logs
   const fetchDevicesList = useCallback(async (currentToken: string) => {
@@ -314,11 +373,26 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setSettingsMap(data);
-        const initialForm: Record<string, string> = {};
-        Object.entries(data).forEach(([k, v]: [string, any]) => {
-          initialForm[k] = v.value;
+        setEditingSettings((prev) => {
+          // If not initialized yet, populate with DB values
+          if (Object.keys(prev).length === 0) {
+            const initialForm: Record<string, string> = {};
+            Object.entries(data).forEach(([k, v]: [string, any]) => {
+              initialForm[k] = v.value;
+            });
+            return initialForm;
+          }
+          // Preserve any values currently being typed by the user, only add new keys
+          const next = { ...prev };
+          let changed = false;
+          Object.entries(data).forEach(([k, v]: [string, any]) => {
+            if (next[k] === undefined) {
+              next[k] = v.value;
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
         });
-        setEditingSettings(initialForm);
       }
     } catch (err) {
       console.error("[Fetch] Settings error:", err);
@@ -333,6 +407,7 @@ export default function DashboardPage() {
     fetchDeviceData(token, selectedDeviceId);
     fetchHistoryData(token, selectedDeviceId);
     fetchNotificationsData(token);
+    fetchSettingsData(token);
 
     if (activeTab === "audit") {
       if (auditLogs.length === 0) setIsLoadingAudit(true);
@@ -340,7 +415,6 @@ export default function DashboardPage() {
     } else if (activeTab === "diagnostics") {
       if (!diagnostics) setIsLoadingDiagnostics(true);
       fetchDiagnosticsData(token);
-      fetchSettingsData(token);
     }
 
     const interval = setInterval(() => {
@@ -348,6 +422,7 @@ export default function DashboardPage() {
       fetchDeviceData(token, selectedDeviceId);
       fetchHistoryData(token, selectedDeviceId);
       fetchNotificationsData(token);
+      fetchSettingsData(token);
 
       if (activeTab === "audit") {
         fetchAuditLogsData(token);
@@ -585,11 +660,11 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSaveSetting = async (key: string) => {
+  const handleSaveSetting = async (key: string, overrideVal?: string) => {
     if (!token) return;
     setIsSavingSettings(true);
     try {
-      const val = editingSettings[key];
+      const val = overrideVal !== undefined ? overrideVal : editingSettings[key];
       const res = await fetch(`${API_BASE}/system/settings/${key}`, {
         method: "PUT",
         headers: {
@@ -600,45 +675,78 @@ export default function DashboardPage() {
       });
       if (res.ok) {
         setLastActionMsg(`Параметр ${key} сохранен: ${val}`);
-        fetchSettingsData(token);
+        // Synchronize local states so UI reflects new value immediately
+        setSettingsMap((prev) => ({
+          ...prev,
+          [key]: {
+            ...prev[key],
+            value: String(val)
+          }
+        }));
+        setEditingSettings((prev) => ({
+          ...prev,
+          [key]: String(val)
+        }));
       } else {
-        setLastActionMsg(`Недостаточно прав (требуется ADMIN)`);
+        const errData = await res.json().catch(() => null);
+        const errMsg = errData?.detail || "Недостаточно прав (требуется ADMIN) или некорректное значение";
+        setLastActionMsg(errMsg);
+        throw new Error(errMsg);
       }
-    } catch (err) {
-      setLastActionMsg("Ошибка сохранения параметра");
+    } catch (err: any) {
+      if (!lastActionMsg) {
+        setLastActionMsg(err.message || "Ошибка сохранения параметра");
+      }
+      throw err;
     } finally {
       setIsSavingSettings(false);
-      setTimeout(() => setLastActionMsg(null), 3500);
+      setTimeout(() => setLastActionMsg(null), 4000);
     }
   };
 
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F7] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-white border border-black/5 flex items-center justify-center shadow-sm">
+            <Wind size={22} className="text-blue-600" />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
+            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <span>Загрузка системы...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-[1720px] 2xl:max-w-[1800px] mx-auto px-4 sm:px-8 xl:px-12 py-5 sm:py-8 lg:py-10">
+    <div className="w-full max-w-[1720px] 2xl:max-w-[1800px] mx-auto px-4 sm:px-6 md:px-8 lg:px-[80px] xl:px-[100px] 2xl:px-[100px] pt-6 sm:pt-7 lg:pt-8 xl:pt-10 2xl:pt-12 pb-6 sm:pb-8 lg:pb-10 2xl:pb-14">
       {/* Apple-style Top Bar */}
-      <header className="flex flex-col md:flex-row justify-between items-stretch md:items-center p-4 sm:p-5 xl:p-6 mb-6 sm:mb-8 gap-4 rounded-2xl bg-white/80 backdrop-blur-xl border border-black/5 shadow-sm">
+      <header className="flex flex-row justify-between items-center p-3.5 sm:p-4 lg:p-4 xl:p-4.5 2xl:p-6 mb-4 sm:mb-5 lg:mb-5 2xl:mb-8 gap-3 sm:gap-4 rounded-2xl bg-white/80 backdrop-blur-xl border border-black/5 shadow-sm">
         {/* Left Branding with Top-Left Burger Button */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
-          {/* Mobile Burger Menu Button - Top Left ONLY */}
+        <div className="flex items-center gap-2.5">
+          {/* Mobile & Tablet Burger Menu Button - Top Left ONLY */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl text-gray-700 bg-gray-100 hover:bg-gray-200 border border-black/5 transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
+            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl text-gray-700 bg-gray-100 hover:bg-gray-200 border border-black/5 transition-all active:scale-95 cursor-pointer shadow-xs shrink-0"
             aria-label="Открыть меню навигации"
             title="Меню навигации"
           >
             <Menu size={19} />
           </button>
 
-          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-            <Wind size={20} strokeWidth={2.2} />
+          <div className="w-8.5 h-8.5 lg:w-9 lg:h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+            <Wind size={19} strokeWidth={2.2} />
           </div>
           <span className="text-sm sm:text-base font-semibold text-gray-900 tracking-tight">
             Воздухоочиститель
           </span>
         </div>
 
-        {/* Center: Device Selector & Add Device Button (hidden on mobile, present in burger menu) */}
-        <div className="hidden md:flex items-center gap-2 w-full md:w-auto">
-          <div className="flex-1 md:flex-initial flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-gray-100/80 hover:bg-gray-200/70 border border-black/5 transition-all relative">
+        {/* Center: Device Selector & Add Device Button (hidden on mobile & tablet, present in burger menu) */}
+        <div className="hidden lg:flex items-center gap-2">
+          <div className="flex-initial flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-gray-100/80 hover:bg-gray-200/70 border border-black/5 transition-all relative">
             <Cpu size={15} className="text-blue-600 flex-shrink-0" />
             <select
               className="bg-transparent border-none outline-none cursor-pointer pr-5 text-xs sm:text-sm font-medium text-gray-800 w-full appearance-none"
@@ -683,41 +791,44 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Right Section: Status Badge & Profile Button (role switcher moved to dedicated Profile page) */}
-        <div className="hidden md:flex items-center gap-2.5 w-full md:w-auto">
-          {/* Status badge */}
-          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-            device.status === "ONLINE"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200/70"
-              : "bg-rose-50 text-rose-700 border-rose-200/70"
-          }`}>
+        {/* Right Section: Status Badge & Profile Button */}
+        <div className="flex items-center gap-2.5">
+          {/* Status badge: visible on tablet and desktop, compact */}
+          <div className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${device.status === "ONLINE"
+            ? "bg-emerald-50 text-emerald-700 border-emerald-200/70"
+            : "bg-rose-50 text-rose-700 border-rose-200/70"
+            }`}>
             <span
-              className={`w-2 h-2 rounded-full ${
-                device.status === "ONLINE" ? "bg-emerald-500 pulse-live" : "bg-rose-500"
-              }`}
+              className={`w-2 h-2 rounded-full ${device.status === "ONLINE" ? "bg-emerald-500 pulse-live" : "bg-rose-500"
+                }`}
             />
             {device.status === "ONLINE" ? "Подключено" : "Отключено"}
           </div>
 
-          {/* Profile Navigation Button */}
+          {/* Profile Navigation Button: desktop only (lg:), on tablet/mobile it's in burger menu */}
           <button
             onClick={() => setActiveTab("profile")}
-            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs sm:text-sm font-medium transition-all active:scale-95 cursor-pointer shadow-xs ${
-              activeTab === "profile"
-                ? "bg-blue-600 text-white border-blue-600 shadow-blue-500/20"
-                : "bg-gray-100/90 hover:bg-gray-200 text-gray-700 border-black/5"
-            }`}
+            className={`hidden lg:inline-flex items-center gap-2 px-3 py-1.5 lg:px-3.5 lg:py-1.5 rounded-xl border text-xs sm:text-sm font-medium transition-all active:scale-95 cursor-pointer shadow-xs ${activeTab === "profile"
+              ? "bg-blue-600 text-white border-blue-600 shadow-blue-500/20"
+              : "bg-white hover:bg-gray-50 text-gray-800 border-gray-200"
+              }`}
             title="Перейти в профиль пользователя и управление доступом"
           >
-            <User size={15} className={activeTab === "profile" ? "text-white" : "text-blue-600"} />
-            <span>Профиль ({ROLE_PROFILES[activeRole].label})</span>
+            <User size={14} className={activeTab === "profile" ? "text-white" : "text-blue-600"} />
+            <span className="font-semibold">
+              {activeSession?.full_name ? activeSession.full_name.split(" ")[0] : "Профиль"}
+            </span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${activeTab === "profile" ? "bg-white/20 text-white" : "bg-blue-50 text-blue-700"
+              }`}>
+              {activeSession?.role || activeRole}
+            </span>
           </button>
         </div>
       </header>
 
       {/* Action Notification Banner */}
       {lastActionMsg && (
-        <div className="bg-emerald-50 border border-emerald-200/60 text-emerald-800 px-4 py-3 rounded-xl mb-6 flex items-center gap-2.5 text-sm font-medium animate-in fade-in">
+        <div className="bg-emerald-50 border border-emerald-200/60 text-emerald-800 px-4 py-3 rounded-xl mb-4 sm:mb-6 flex items-center gap-2.5 text-sm font-medium animate-in fade-in">
           <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
           <span>{lastActionMsg}</span>
         </div>
@@ -730,185 +841,208 @@ export default function DashboardPage() {
         />
       ) : (
         <section
-          className={`${
-            ["alerts", "diagnostics", "audit", "profile"].includes(activeTab)
-              ? "hidden md:grid"
-              : "grid"
-          } grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 xl:gap-6 mb-6 sm:mb-8`}
+          className={`${["alerts", "diagnostics", "audit", "profile"].includes(activeTab)
+            ? "hidden md:grid"
+            : "grid"
+            } grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-3.5 xl:gap-4.5 2xl:gap-6 mb-4 sm:mb-5 lg:mb-5 2xl:mb-8`}
         >
-        {/* Card 1: Температура */}
-        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs sm:text-sm font-medium text-gray-500">
-              Температура воздуха
-            </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Thermometer size={20} strokeWidth={2} />
+          {/* Card 1: Температура */}
+          <div className="rounded-2xl bg-white p-4 sm:p-4.5 lg:p-4.5 xl:p-5 2xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex justify-between items-center mb-2.5 lg:mb-2 2xl:mb-3">
+              <span className="text-xs lg:text-xs xl:text-sm font-medium text-gray-500">
+                Температура воздуха
+              </span>
+              <div className="w-8 h-8 lg:w-8.5 lg:h-8.5 xl:w-9 xl:h-9 2xl:w-10 2xl:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Thermometer size={18} className="lg:w-4.5 lg:h-4.5 2xl:w-5 2xl:h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1">
+              {device.status === "ONLINE" && device.last_temperature !== null
+                ? `${device.last_temperature.toFixed(1)}°`
+                : "0°"}
+            </div>
+            <div className="flex items-center justify-between text-xs xl:text-sm">
+              <span className={
+                device.status !== "ONLINE"
+                  ? "text-rose-500 font-medium"
+                  : (device.last_temperature !== null && device.last_temperature > tempHighThreshold)
+                    ? "text-rose-600 font-semibold"
+                    : "text-emerald-600 font-medium"
+              }>
+                {device.status === "ONLINE"
+                  ? (device.last_temperature !== null
+                    ? (device.last_temperature > tempHighThreshold
+                      ? `Выше нормы (> ${tempHighThreshold.toFixed(0)} °C)`
+                      : `Норма (до ${tempHighThreshold.toFixed(0)} °C)`)
+                    : "Нет данных")
+                  : "Отключено"}
+              </span>
+              <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
+            </div>
+            <div className="h-1 lg:h-1.5 bg-gray-100 rounded-full mt-3 lg:mt-3.5 2xl:mt-4 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${device.status === "ONLINE" && device.last_temperature !== null && device.last_temperature > tempHighThreshold
+                    ? "bg-rose-500"
+                    : "bg-blue-600"
+                  }`}
+                style={{
+                  width: device.status === "ONLINE"
+                    ? `${Math.min(100, Math.max(0, (((device.last_temperature || 20) - 15) / 25) * 100))}%`
+                    : "0%"
+                }}
+              />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1.5">
-            {device.status === "ONLINE" && device.last_temperature !== null
-              ? `${device.last_temperature.toFixed(1)}°`
-              : "0°"}
-          </div>
-          <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
-              {device.status === "ONLINE"
-                ? (device.last_temperature !== null && device.last_temperature <= 30.0 ? "Норма (18–26 °C)" : "Повышенная")
-                : "Отключено"}
-            </span>
-            <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
-            <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{
-                width: device.status === "ONLINE"
-                  ? `${Math.min(100, Math.max(0, (((device.last_temperature || 20) - 15) / 20) * 100))}%`
-                  : "0%"
-              }}
-            />
-          </div>
-        </div>
 
-        {/* Card 2: Влажность */}
-        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs sm:text-sm font-medium text-gray-500">
-              Относительная влажность
-            </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-              <Droplets size={20} strokeWidth={2} />
+          {/* Card 2: Влажность */}
+          <div className="rounded-2xl bg-white p-4 sm:p-4.5 lg:p-4.5 xl:p-5 2xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex justify-between items-center mb-2.5 lg:mb-2 2xl:mb-3">
+              <span className="text-xs lg:text-xs xl:text-sm font-medium text-gray-500">
+                Относительная влажность
+              </span>
+              <div className="w-8 h-8 lg:w-8.5 lg:h-8.5 xl:w-9 xl:h-9 2xl:w-10 2xl:h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <Droplets size={18} className="lg:w-4.5 lg:h-4.5 2xl:w-5 2xl:h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1">
+              {device.status === "ONLINE" && device.last_humidity !== null
+                ? `${device.last_humidity.toFixed(1)}%`
+                : "0%"}
+            </div>
+            <div className="flex items-center justify-between text-xs xl:text-sm">
+              <span className={
+                device.status !== "ONLINE"
+                  ? "text-rose-500 font-medium"
+                  : (device.last_humidity !== null && (device.last_humidity < humidityMinThreshold || device.last_humidity > humidityMaxThreshold))
+                    ? "text-amber-600 font-semibold"
+                    : "text-emerald-600 font-medium"
+              }>
+                {device.status === "ONLINE"
+                  ? (device.last_humidity !== null
+                    ? (device.last_humidity < humidityMinThreshold
+                      ? `Ниже нормы (< ${humidityMinThreshold.toFixed(0)}%)`
+                      : (device.last_humidity > humidityMaxThreshold
+                        ? `Выше нормы (> ${humidityMaxThreshold.toFixed(0)}%)`
+                        : `Норма (${humidityMinThreshold.toFixed(0)}–${humidityMaxThreshold.toFixed(0)}%)`))
+                    : "Нет данных")
+                  : "Отключено"}
+              </span>
+              <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
+            </div>
+            <div className="h-1 lg:h-1.5 bg-gray-100 rounded-full mt-3 lg:mt-3.5 2xl:mt-4 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${device.status === "ONLINE" && device.last_humidity !== null && (device.last_humidity < humidityMinThreshold || device.last_humidity > humidityMaxThreshold)
+                    ? "bg-amber-500"
+                    : "bg-teal-500"
+                  }`}
+                style={{
+                  width: device.status === "ONLINE"
+                    ? `${Math.min(100, Math.max(0, device.last_humidity || 50))}%`
+                    : "0%"
+                }}
+              />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight mb-1.5">
-            {device.status === "ONLINE" && device.last_humidity !== null
-              ? `${device.last_humidity.toFixed(1)}%`
-              : "0%"}
-          </div>
-          <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className={device.status === "ONLINE" ? "text-emerald-600 font-medium" : "text-rose-500 font-medium"}>
-              {device.status === "ONLINE"
-                ? (device.last_humidity !== null && device.last_humidity >= 30 && device.last_humidity <= 60 ? "Оптимально (40–60%)" : "В норме")
-                : "Отключено"}
-            </span>
-            <span className="text-gray-400 font-mono text-xs">SHT31 (I2C)</span>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
-            <div
-              className="h-full bg-teal-500 rounded-full transition-all duration-500"
-              style={{
-                width: device.status === "ONLINE"
-                  ? `${Math.min(100, Math.max(0, device.last_humidity || 50))}%`
-                  : "0%"
-              }}
-            />
-          </div>
-        </div>
 
-        {/* Card 3: Ресурс фильтра */}
-        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs sm:text-sm font-medium text-gray-500">
-              Ресурс фильтра HEPA
-            </span>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <ShieldCheck size={20} strokeWidth={2} />
+          {/* Card 3: Ресурс фильтра */}
+          <div className="rounded-2xl bg-white p-4 sm:p-4.5 lg:p-4.5 xl:p-5 2xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex justify-between items-center mb-2.5 lg:mb-2 2xl:mb-3">
+              <span className="text-xs lg:text-xs xl:text-sm font-medium text-gray-500">
+                Ресурс фильтра HEPA
+              </span>
+              <div className="w-8 h-8 lg:w-8.5 lg:h-8.5 xl:w-9 xl:h-9 2xl:w-10 2xl:h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <ShieldCheck size={18} className="lg:w-4.5 lg:h-4.5 2xl:w-5 2xl:h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <span className="text-2xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-semibold text-gray-900 tracking-tight">
+                {device.filter_life_percent.toFixed(1)}%
+              </span>
+              <span className="text-xs xl:text-sm text-gray-400 font-mono">
+                ({device.filter_hours_used.toFixed(0)}/{device.filter_hours_max}ч)
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs xl:text-sm">
+              <span className="text-gray-400">Наработка</span>
+              {(activeRole === "ADMIN" || activeRole === "OPERATOR") && (
+                <button
+                  onClick={() => setIsFilterModalOpen(true)}
+                  className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
+                >
+                  Сброс
+                </button>
+              )}
+            </div>
+            <div className="h-1 lg:h-1.5 bg-gray-100 rounded-full mt-3 lg:mt-3.5 2xl:mt-4 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${device.filter_life_percent > 20 ? "bg-emerald-500" : "bg-rose-500"
+                  }`}
+                style={{ width: `${Math.min(100, Math.max(0, device.filter_life_percent))}%` }}
+              />
             </div>
           </div>
-          <div className="flex items-baseline gap-2 mb-1.5">
-            <span className="text-2xl sm:text-3xl xl:text-4xl font-semibold text-gray-900 tracking-tight">
-              {device.filter_life_percent.toFixed(1)}%
-            </span>
-            <span className="text-xs sm:text-sm text-gray-400 font-mono">
-              ({device.filter_hours_used.toFixed(0)}/{device.filter_hours_max}ч)
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className="text-gray-400">Наработка</span>
-            {(activeRole === "ADMIN" || activeRole === "OPERATOR") && (
-              <button
-                onClick={() => setIsFilterModalOpen(true)}
-                className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-              >
-                Сброс
-              </button>
-            )}
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                device.filter_life_percent > 20 ? "bg-emerald-500" : "bg-rose-500"
-              }`}
-              style={{ width: `${Math.min(100, Math.max(0, device.filter_life_percent))}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Card 4: Состояние прибора */}
-        <div className="rounded-2xl bg-white p-5 sm:p-6 xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-xs sm:text-sm font-medium text-gray-500">
-              Состояние прибора
-            </span>
-            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${
-              device.status === "ONLINE" && device.fan_active
+          {/* Card 4: Состояние прибора */}
+          <div className="rounded-2xl bg-white p-4 sm:p-4.5 lg:p-4.5 xl:p-5 2xl:p-7 border border-black/5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+            <div className="flex justify-between items-center mb-2.5 lg:mb-2 2xl:mb-3">
+              <span className="text-xs lg:text-xs xl:text-sm font-medium text-gray-500">
+                Состояние вентилятора
+              </span>
+              <div className={`w-8 h-8 lg:w-8.5 lg:h-8.5 xl:w-9 xl:h-9 2xl:w-10 2xl:h-10 rounded-xl flex items-center justify-center ${device.status === "ONLINE" && device.fan_active
                 ? "bg-blue-50 text-blue-600"
                 : "bg-gray-100 text-gray-400"
-            }`}>
-              <Wind size={20} strokeWidth={2} />
+                }`}>
+                <Wind size={18} className="lg:w-4.5 lg:h-4.5 2xl:w-5 2xl:h-5" strokeWidth={2} />
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2.5 mb-3.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${
-              device.status === "ONLINE"
+            <div className="flex items-center gap-2 mb-2.5 lg:mb-2.5 2xl:mb-3.5">
+              <span className={`w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full ${device.status === "ONLINE"
                 ? (device.fan_active ? "bg-emerald-500" : "bg-gray-400")
                 : "bg-rose-500"
-            }`} />
-            <span className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 tracking-tight">
-              {device.status === "ONLINE"
-                ? (device.fan_active ? "Очистка активна" : "Прибор остановлен")
-                : "Отключено"}
-            </span>
-          </div>
-          {activeRole === "ADMIN" || activeRole === "OPERATOR" ? (
-            <button
-              onClick={handleToggleFan}
-              disabled={commandLoading || device.status !== "ONLINE"}
-              className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm xl:text-base font-medium transition-all active:scale-95 flex items-center justify-center gap-2 shadow-sm ${
-                device.status !== "ONLINE"
+                }`} />
+              <span className="text-sm sm:text-base lg:text-base xl:text-lg 2xl:text-xl font-semibold text-gray-900 tracking-tight">
+                {device.status === "ONLINE"
+                  ? (device.fan_active ? "Активен" : "Прибор остановлен")
+                  : "Отключено"}
+              </span>
+            </div>
+            {activeRole === "ADMIN" || activeRole === "OPERATOR" ? (
+              <button
+                onClick={handleToggleFan}
+                disabled={commandLoading || device.status !== "ONLINE"}
+                className={`w-full py-1.5 lg:py-2 xl:py-2.5 2xl:py-3 px-3 rounded-xl text-xs xl:text-sm 2xl:text-base font-medium transition-all active:scale-95 flex items-center justify-center gap-1.5 xl:gap-2 shadow-sm ${device.status !== "ONLINE"
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : (device.fan_active
-                      ? "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-                      : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer")
-              }`}
-            >
-              <Power size={16} strokeWidth={2.2} />
-              <span>
-                {device.status !== "ONLINE"
-                  ? "Прибор отключен"
-                  : (device.fan_active ? "Остановить вентилятор" : "Запустить вентилятор")}
-              </span>
-            </button>
-          ) : (
-            <div className="text-xs text-gray-400 pt-1">
-              Доступно администраторам и операторам
-            </div>
-          )}
-        </div>
-      </section>
+                    ? "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                    : "bg-blue-600 hover:bg-blue-700 text-white cursor-pointer")
+                  }`}
+              >
+                <Power size={14} className="xl:w-4 xl:h-4" strokeWidth={2.2} />
+                <span>
+                  {device.status !== "ONLINE"
+                    ? "Прибор отключен"
+                    : (device.fan_active ? "Остановить" : "Запустить")}
+                </span>
+              </button>
+            ) : (
+              <div className="text-xs text-gray-400 pt-1">
+                Доступно администраторам и операторам
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* Desktop Navigation Bar (hidden on mobile, navigation is via top-left burger menu) */}
-      <div className="hidden md:flex justify-between items-center gap-4 mb-6 sm:mb-8">
+      {/* Desktop Navigation Bar (hidden on mobile and tablet, navigation is via top-left burger menu) */}
+      <div className="hidden lg:flex justify-between items-center gap-3 xl:gap-4 mb-4 sm:mb-5 lg:mb-5 2xl:mb-8">
         <div className="overflow-x-auto no-scrollbar pb-1">
-          <div className="inline-flex items-center bg-gray-100/90 p-1.5 rounded-2xl gap-1.5 whitespace-nowrap">
+          <div className="inline-flex items-center bg-gray-100/90 p-1 lg:p-1.2 xl:p-1.5 rounded-2xl gap-1 lg:gap-1.5 whitespace-nowrap">
             {[
               { id: "overview", label: "Аналитика", icon: Activity },
               { id: "history", label: "История замеров", icon: Clock },
-              { id: "alerts", label: `Алерты (${notifications.filter((n) => !n.is_resolved).length})`, icon: AlertTriangle },
-              { id: "diagnostics", label: "Диагностика и настройки", icon: Server },
-              { id: "audit", label: "Журнал аудита", icon: FileText }
+              { id: "alerts", label: `Оповещения (${notifications.filter((n) => !n.is_resolved).length})`, icon: AlertTriangle },
+              { id: "diagnostics", label: "Настройки и статус", icon: Sliders },
+              { id: "audit", label: "История событий", icon: Activity }
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -916,13 +1050,12 @@ export default function DashboardPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-white text-gray-900 font-semibold shadow-sm"
-                      : "text-gray-500 hover:text-gray-900"
-                  }`}
+                  className={`inline-flex items-center gap-1.5 xl:gap-2 px-3 py-1.5 lg:px-3 lg:py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-all cursor-pointer ${isActive
+                    ? "bg-white text-gray-900 font-semibold shadow-sm"
+                    : "text-gray-500 hover:text-gray-900"
+                    }`}
                 >
-                  <Icon size={16} strokeWidth={2} />
+                  <Icon size={14} className="xl:w-4 xl:h-4" strokeWidth={2} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -932,9 +1065,9 @@ export default function DashboardPage() {
 
         <button
           onClick={handleExportCSV}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-200/80 shadow-sm transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+          className="inline-flex items-center justify-center gap-1.5 xl:gap-2 px-3.5 py-1.5 lg:px-3.5 lg:py-2 xl:px-5 xl:py-2.5 rounded-xl text-xs xl:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-200/80 shadow-sm transition-all cursor-pointer active:scale-95 whitespace-nowrap"
         >
-          <Download size={16} strokeWidth={2} />
+          <Download size={14} className="xl:w-4 xl:h-4" strokeWidth={2} />
           <span>Экспорт в CSV</span>
         </button>
       </div>
@@ -1012,8 +1145,12 @@ export default function DashboardPage() {
       {/* TAB 6: PROFILE & ACCESS CONTROL */}
       {activeTab === "profile" && (
         <UserProfileSection
-          activeRole={activeRole}
-          onSelectRole={setActiveRole}
+          activeSession={activeSession}
+          allSessions={sessions}
+          onSwitchSession={handleSwitchSession}
+          onLogoutSession={handleLogoutSession}
+          onLogoutAll={handleLogoutAll}
+          onAddAccount={handleAddAccount}
           token={token}
         />
       )}
@@ -1097,8 +1234,11 @@ export default function DashboardPage() {
           }
         }}
         onOpenAddDevice={() => setIsAddDeviceOpen(true)}
-        activeRole={activeRole}
-        onSelectRole={(role) => setActiveRole(role)}
+        activeSession={activeSession}
+        allSessions={sessions}
+        onSwitchSession={handleSwitchSession}
+        onAddAccount={handleAddAccount}
+        onLogoutAll={handleLogoutAll}
         onExportCSV={handleExportCSV}
       />
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { RefreshCw, Thermometer, Droplets, Wind, Clock } from "lucide-react";
 
 export interface HistoryPoint {
@@ -34,14 +34,38 @@ function formatLocalTime(dateStr: string): string {
 export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartProps) {
   const [viewMode, setViewMode] = useState<"ALL" | "TEMP" | "HUM">("ALL");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(1000);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const width = 1120;
-  const height = 340;
-  const padLeft = 56;
-  const padRight = 56;
-  const padTop = 28;
-  const padBottom = 44;
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const w = containerRef.current.clientWidth;
+        if (w > 0) setContainerWidth(w);
+      }
+    };
+    updateWidth();
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(Math.round(entry.contentRect.width));
+        }
+      }
+    });
+
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const width = Math.max(320, containerWidth);
+  const height = 300;
+  const padLeft = 48;
+  const padRight = 48;
+  const padTop = 24;
+  const padBottom = 38;
 
   const chartData = useMemo(() => {
     if (!history || history.length < 2) {
@@ -127,9 +151,12 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || !history || history.length < 2) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * width;
+    if (rect.width <= 0) return;
 
+    const mouseX = ((e.clientX - rect.left) / rect.width) * width;
     const plotWidth = width - padLeft - padRight;
+    if (plotWidth <= 0) return;
+
     const clampedX = Math.max(padLeft, Math.min(width - padRight, mouseX));
     const normalizedRatio = (clampedX - padLeft) / plotWidth;
     const rawIndex = Math.round(normalizedRatio * (history.length - 1));
@@ -144,11 +171,11 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
   const hoveredItem = hoverIndex !== null && history[hoverIndex] ? history[hoverIndex] : null;
 
   return (
-    <section className="rounded-2xl bg-white p-5 sm:p-7 xl:p-8 border border-black/5 shadow-sm mb-6 sm:mb-8">
+    <section className="rounded-2xl bg-white p-4 sm:p-6 lg:p-5 xl:p-6 2xl:p-8 border border-black/5 shadow-sm mb-4 sm:mb-5 lg:mb-5 2xl:mb-8">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 lg:mb-4 xl:mb-5 2xl:mb-6 gap-3 sm:gap-4">
         <div>
-          <h2 className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 tracking-tight">
+          <h2 className="text-base sm:text-lg lg:text-base xl:text-lg 2xl:text-xl font-semibold text-gray-900 tracking-tight">
             Динамика климатических параметров
           </h2>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -203,11 +230,12 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
 
       {/* SVG Chart with Y-Axes and Tooltip */}
       {chartData.hasData ? (
-        <div className="relative w-full overflow-x-auto">
+        <div ref={containerRef} className="relative w-full overflow-hidden">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${width} ${height}`}
-            className="w-full h-[280px] sm:h-[340px] xl:h-[380px] cursor-crosshair"
+            preserveAspectRatio="none"
+            className="w-full h-[240px] sm:h-[280px] lg:h-[290px] xl:h-[310px] 2xl:h-[350px] cursor-crosshair block"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
@@ -342,12 +370,10 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
           {hoveredItem && hoverIndex !== null && (
             <div
               style={{
-                left: Math.min(
-                  width - 240,
-                  Math.max(12, ((chartData.getX(hoverIndex) / width) * 100))
-                ) + "%",
+                left: `${Math.max(105, Math.min(width - 105, chartData.getX(hoverIndex)))}px`,
+                transform: "translateX(-50%)"
               }}
-              className="absolute top-3.5 -translate-x-1/2 bg-white/95 backdrop-blur-xl border border-black/10 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-20 min-w-[190px]"
+              className="absolute top-2 bg-white/95 backdrop-blur-xl border border-black/10 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-20 min-w-[190px]"
             >
               <div className="flex items-center justify-between border-b border-gray-100 pb-1.5 mb-2">
                 <div className="flex items-center gap-1.5 text-gray-500 text-xs">
@@ -387,9 +413,10 @@ export default function ClimateDynamicsChart({ history }: ClimateDynamicsChartPr
           {/* Bottom Timeline with Synchronized Local Time */}
           <div
             style={{
-              padding: `0 ${padRight}px 0 ${padLeft}px`
+              paddingLeft: `${padLeft}px`,
+              paddingRight: `${padRight}px`
             }}
-            className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 mt-2.5 text-xs text-gray-400"
+            className="flex flex-col sm:flex-row justify-between items-center gap-1 sm:gap-2 mt-2 text-xs text-gray-400"
           >
             <span>
               Начало окна: <strong className="text-gray-700 font-medium">{formatLocalTime(history[0]?.recorded_at)}</strong>

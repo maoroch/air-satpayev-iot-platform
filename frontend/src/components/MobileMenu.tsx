@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   X,
   Activity,
@@ -14,8 +14,11 @@ import {
   User,
   Cpu,
   Plus,
+  LogOut,
+  Check,
   LucideIcon
 } from "lucide-react";
+import { AuthSession } from "../utils/auth";
 
 export type TabId = "overview" | "history" | "alerts" | "diagnostics" | "audit" | "profile";
 
@@ -34,12 +37,6 @@ export interface DeviceData {
   last_seen: string | null;
 }
 
-const ROLE_PROFILES = {
-  ADMIN: { email: "admin@satpayev.kz", label: "Администратор" },
-  OPERATOR: { email: "operator@satpayev.kz", label: "Оператор" },
-  TECH: { email: "tech@satpayev.kz", label: "Техник" }
-};
-
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,8 +48,11 @@ interface MobileMenuProps {
   selectedDeviceId: string;
   onSelectDevice: (deviceId: string) => void;
   onOpenAddDevice: () => void;
-  activeRole: "ADMIN" | "OPERATOR" | "TECH";
-  onSelectRole: (role: "ADMIN" | "OPERATOR" | "TECH") => void;
+  activeSession: AuthSession | null;
+  allSessions: AuthSession[];
+  onSwitchSession: (email: string) => void;
+  onAddAccount: () => void;
+  onLogoutAll: () => void;
   onExportCSV: () => void;
 }
 
@@ -67,19 +67,13 @@ export default function MobileMenu({
   selectedDeviceId,
   onSelectDevice,
   onOpenAddDevice,
-  activeRole,
-  onSelectRole,
+  activeSession,
+  allSessions = [],
+  onSwitchSession,
+  onAddAccount,
+  onLogoutAll,
   onExportCSV
 }: MobileMenuProps) {
-  // Keep mounted once opened so exit transition plays smoothly
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setMounted(true);
-    }
-  }, [isOpen]);
-
   // Close on Escape key and lock background scroll
   useEffect(() => {
     if (!isOpen) return;
@@ -97,28 +91,28 @@ export default function MobileMenu({
     };
   }, [isOpen, onClose]);
 
-  if (!mounted) return null;
+  const isAdmin = activeSession?.role === "ADMIN";
 
   const menuItems: { id: TabId; label: string; icon: LucideIcon }[] = [
     { id: "overview", label: "Аналитика", icon: Activity },
     { id: "history", label: "История замеров", icon: Clock },
     {
       id: "alerts",
-      label: `Алерты (${unresolvedAlertsCount})`,
+      label: `Оповещения (${unresolvedAlertsCount})`,
       icon: AlertTriangle
     },
-    { id: "diagnostics", label: "Диагностика и настройки", icon: Sliders },
-    { id: "audit", label: "Журнал аудита", icon: FileText }
+    { id: "diagnostics", label: "Настройки и статус", icon: Sliders },
+    { id: "audit", label: "История событий", icon: Activity }
   ];
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex justify-start md:hidden transition-all duration-300 ease-in-out ${isOpen ? "opacity-100 pointer-events-auto visible" : "opacity-0 pointer-events-none invisible"
+      className={`fixed inset-0 z-50 flex justify-start lg:hidden ${isOpen ? "pointer-events-auto visible" : "pointer-events-none invisible delay-300"
         }`}
     >
       {/* Backdrop Overlay with smooth fade */}
       <div
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-in-out ${isOpen ? "opacity-100" : "opacity-0"
+        className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out ${isOpen ? "opacity-100" : "opacity-0"
           }`}
         onClick={onClose}
         aria-hidden="true"
@@ -126,7 +120,7 @@ export default function MobileMenu({
 
       {/* Drawer Panel - Smooth hardware-accelerated slide from Left */}
       <div
-        className={`relative w-[88vw] max-w-sm h-full bg-white border-r border-gray-200/80 shadow-2xl flex flex-col z-10 transform transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"
+        className={`relative w-[88vw] max-w-sm h-full bg-white border-r border-gray-200/80 shadow-2xl flex flex-col z-10 transition-transform duration-300 ease-out ${isOpen ? "translate-x-0" : "-translate-x-full"
           } overflow-hidden`}
       >
         {/* Drawer Header */}
@@ -156,7 +150,7 @@ export default function MobileMenu({
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Neat, unified controls card inside drawer */}
+          {/* Controls card inside drawer */}
           <div className="p-3.5 border-b border-gray-100 bg-gray-50/70">
             <div className="bg-white rounded-2xl p-3 border border-gray-200/70 shadow-xs space-y-2.5">
               {/* Device Selector with Add Button */}
@@ -188,7 +182,7 @@ export default function MobileMenu({
                   />
                 </div>
 
-                {activeRole === "ADMIN" && (
+                {isAdmin && (
                   <button
                     onClick={() => {
                       onOpenAddDevice();
@@ -222,11 +216,13 @@ export default function MobileMenu({
                     onSelectTab("profile");
                     onClose();
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 font-medium transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:text-blue-600 font-medium transition-colors cursor-pointer max-w-[160px]"
                 >
-                  <User size={13} className="text-gray-400" />
-                  <span>{ROLE_PROFILES[activeRole].label}</span>
-                  <ChevronRight size={12} className="text-gray-400" />
+                  <User size={13} className="text-blue-600 shrink-0" />
+                  <span className="truncate">{activeSession?.full_name || "Профиль"}</span>
+                  <span className="text-[10px] font-bold text-blue-600 px-1.5 py-0.2 rounded bg-blue-50">
+                    {activeSession?.role || "USER"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -252,15 +248,15 @@ export default function MobileMenu({
                     onClose();
                   }}
                   className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all text-left cursor-pointer ${isActive
-                      ? "bg-blue-50 text-blue-600 font-semibold shadow-xs"
-                      : "text-gray-700 hover:bg-gray-100 active:scale-[0.99]"
+                    ? "bg-blue-50 text-blue-600 font-semibold shadow-xs"
+                    : "text-gray-700 hover:bg-gray-100 active:scale-[0.99]"
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isActive
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-500"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-500"
                         }`}
                     >
                       <Icon size={16} strokeWidth={isActive ? 2.2 : 2} />
@@ -286,8 +282,61 @@ export default function MobileMenu({
           </nav>
         </div>
 
-        {/* Drawer Footer with CSV Export */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex flex-col gap-2">
+        {/* Drawer Footer with Sessions & CSV Export */}
+        <div className="p-3.5 border-t border-gray-100 bg-gray-50 flex flex-col gap-2.5">
+          {/* Quick active accounts switcher if more than 1 session */}
+          {allSessions.length > 1 && (
+            <div className="space-y-1 pb-2 border-b border-gray-200/60">
+              <div className="flex items-center justify-between text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-1">
+                <span>Сменить аккаунт ({allSessions.length})</span>
+              </div>
+              <div className="space-y-1 max-h-24 overflow-y-auto pr-0.5">
+                {allSessions.map((s) => {
+                  const isCurrent = s.email.toLowerCase() === activeSession?.email.toLowerCase();
+                  return (
+                    <button
+                      key={s.email}
+                      onClick={() => {
+                        onSwitchSession(s.email);
+                        onClose();
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ${isCurrent ? "bg-blue-100/70 text-blue-800 font-semibold" : "text-gray-700 hover:bg-gray-200/60"
+                        }`}
+                    >
+                      <span className="truncate">{s.full_name} ({s.role})</span>
+                      {isCurrent && <Check size={12} className="text-blue-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Add Account & Logout All Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onAddAccount();
+                onClose();
+              }}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition-colors cursor-pointer"
+            >
+              <Plus size={13} />
+              <span>+ Аккаунт</span>
+            </button>
+            <button
+              onClick={() => {
+                onLogoutAll();
+                onClose();
+              }}
+              className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-medium text-gray-600 bg-white hover:bg-red-50 hover:text-red-600 border border-gray-200 transition-colors cursor-pointer"
+              title="Выйти из всех аккаунтов"
+            >
+              <LogOut size={13} />
+              <span>Выход</span>
+            </button>
+          </div>
+
           <button
             onClick={() => {
               onExportCSV();
@@ -298,7 +347,7 @@ export default function MobileMenu({
             <Download size={14} />
             <span>Экспорт замеров в CSV</span>
           </button>
-          <p className="text-[11px] text-center text-gray-400">
+          <p className="text-[10px] text-center text-gray-400">
             КазНИТУ • Версия 1.0.4 • ESP32
           </p>
         </div>
