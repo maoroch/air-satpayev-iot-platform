@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "publish:showcase": "cd .. && bash scripts/sync-public.sh",
+    "sync:public": "cd .. && bash scripts/sync-public.sh"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",
