@@ -55,6 +55,9 @@ services:
       SECRET_KEY: super-secret-key-satpayev-wind-2026-very-secure-jwt-key
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   device_adapter:
     build:

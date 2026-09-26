@@ -42,6 +42,7 @@ def process_command_ack(command_id: str, payload: dict = None, db: Session = Dep
 
 @router.get("/{device_id}", response_model=DeviceResponse)
 def get_device(device_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    TelemetryService.check_offline_devices(db)
     device = db.query(Device).filter(Device.id == device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="Устройство не найдено")

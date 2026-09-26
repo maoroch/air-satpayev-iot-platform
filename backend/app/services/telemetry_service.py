@@ -165,7 +165,7 @@ class TelemetryService:
         now = utc_now()
         if timeout_seconds is None:
             timeout_setting = db.query(Setting).filter(Setting.key == "DEVICE_OFFLINE_TIMEOUT_SEC").first()
-            timeout_seconds = int(timeout_setting.value) if timeout_setting else 30
+            timeout_seconds = int(timeout_setting.value) if timeout_setting else 12
 
         threshold = now - timedelta(seconds=timeout_seconds)
         
@@ -176,6 +176,7 @@ class TelemetryService:
 
         for d in online_devices:
             d.status = "OFFLINE"
+            d.fan_active = False
             TelemetryService._create_unique_notification(
                 db=db,
                 device_id=d.id,
@@ -187,3 +188,4 @@ class TelemetryService:
         
         if online_devices:
             db.commit()
+        return online_devices

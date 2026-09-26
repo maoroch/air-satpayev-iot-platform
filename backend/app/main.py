@@ -66,11 +66,14 @@ def init_db():
             ("ALERT_HUMIDITY_MIN", "20.0", "Минимальная допустимая влажность (%)"),
             ("ALERT_HUMIDITY_MAX", "80.0", "Максимальная допустимая влажность (%)"),
             ("ALERT_FILTER_WARN_PERCENT", "10.0", "Порог предупреждения о замене фильтра (%)"),
-            ("DEVICE_OFFLINE_TIMEOUT_SEC", "30", "Таймаут перехода прибора в Offline (сек)"),
+            ("DEVICE_OFFLINE_TIMEOUT_SEC", "15", "Таймаут перехода прибора в Offline (сек)"),
         ]
         for k, v, desc in default_settings:
-            if not db.query(Setting).filter(Setting.key == k).first():
+            setting = db.query(Setting).filter(Setting.key == k).first()
+            if not setting:
                 db.add(Setting(key=k, value=v, description=desc))
+            elif k == "DEVICE_OFFLINE_TIMEOUT_SEC":
+                setting.value = "15"
 
         db.commit()
     finally:
@@ -119,6 +122,40 @@ class ConnectionManager:
                 pass
 
 ws_manager = ConnectionManager()
+
+from app.services.telemetry_service import TelemetryService
+
+async def offline_device_checker():
+    """Periodic background task that detects offline devices and broadcasts to WebSocket listeners"""
+    while True:
+        try:
+            await asyncio.sleep(3)
+            db = SessionLocal()
+            try:
+                offline_devices = TelemetryService.check_offline_devices(db, timeout_seconds=15)
+                if offline_devices:
+                    for d in offline_devices:
+                        msg = json.dumps({
+                            "type": "DEVICE_OFFLINE",
+                            "device_id": d.id,
+                            "status": "OFFLINE",
+                            "temperature": 0.0,
+                            "humidity": 0.0,
+                            "fan_active": False,
+                            "filter_life_percent": d.filter_life_percent,
+                            "filter_hours_used": d.filter_hours_used,
+                            "filter_hours_max": d.filter_hours_max,
+                            "last_seen": d.last_seen.isoformat() if d.last_seen else None
+                        })
+                        await ws_manager.broadcast(msg)
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+@app.on_event("startup")
+async def start_background_tasks():
+    asyncio.create_task(offline_device_checker())
 
 @app.websocket("/api/v1/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
