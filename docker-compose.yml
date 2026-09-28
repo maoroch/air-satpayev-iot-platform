@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: Satpayev2026SecurePass
       POSTGRES_DB: purifier_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +21,8 @@ services:
     image: redis:7-alpine
     container_name: purifier-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
 
   mosquitto:
     image: eclipse-mosquitto:2.0
@@ -101,8 +101,8 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:3000"
       - "80:3000"
+      - "3005:3000"
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-}
