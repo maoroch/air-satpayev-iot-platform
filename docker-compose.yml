@@ -48,7 +48,7 @@ services:
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://postgres:Satpayev2026SecurePass@postgres:5432/purifier_db
+      DATABASE_URL: postgresql+psycopg2://postgres:Satpayev2026SecurePass@postgres:5432/purifier_db
       MQTT_BROKER_HOST: mosquitto
       MQTT_BROKER_PORT: 1883
       REDIS_URL: redis://redis:6379/0
